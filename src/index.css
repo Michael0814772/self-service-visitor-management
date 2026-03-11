@@ -1,0 +1,162 @@
+:root {
+  --primary: #2c3e50;
+  --secondary: #3498db;
+  --success: #2ecc71;
+  --warning: #f39c12;
+  --danger: #e74c3c;
+  --light: #ecf0f1;
+  --dark: #2c3e50;
+}
+
+body {
+  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+  background-color: #f8f9fa;
+  color: #333;
+  min-height: 100vh;
+}
+
+.navbar {
+  background-color: var(--primary);
+}
+
+.navbar-brand {
+  font-weight: 600;
+}
+
+.card {
+  border-radius: 10px;
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+  margin-bottom: 20px;
+  border: none;
+}
+
+.card-header {
+  background-color: var(--primary);
+  color: white;
+  border-radius: 10px 10px 0 0 !important;
+  font-weight: 600;
+}
+
+.btn-primary {
+  background-color: var(--secondary);
+  border: none;
+}
+
+.btn-primary:hover {
+  background-color: #2980b9;
+}
+
+.status-badge {
+  padding: 5px 10px;
+  border-radius: 20px;
+  font-size: 0.8rem;
+  font-weight: 600;
+}
+
+.status-pending {
+  background-color: #ffeaa7;
+  color: #d35400;
+}
+
+.status-approved {
+  background-color: #d1f7c4;
+  color: #27ae60;
+}
+
+.status-checkedin {
+  background-color: #c7ecee;
+  color: #2980b9;
+}
+
+.status-checkedout {
+  background-color: #dfe6e9;
+  color: #636e72;
+}
+
+.visitor-badge {
+  border: 2px solid #3498db;
+  border-radius: 10px;
+  padding: 15px;
+  background: linear-gradient(135deg, #ffffff 0%, #f8f9fa 100%);
+  max-width: 400px;
+  margin: 0 auto;
+}
+
+.kiosk-container {
+  max-width: 800px;
+  margin: 0 auto;
+  background: white;
+  border-radius: 15px;
+  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.1);
+  overflow: hidden;
+}
+
+.kiosk-header {
+  background: var(--primary);
+  color: white;
+  padding: 20px;
+  text-align: center;
+}
+
+.kiosk-body {
+  padding: 30px;
+}
+
+.welcome-screen {
+  text-align: center;
+  padding: 40px 20px;
+}
+
+.dashboard-stat {
+  text-align: center;
+  padding: 20px;
+  border-radius: 10px;
+  margin-bottom: 20px;
+}
+
+.stat-value {
+  font-size: 2.5rem;
+  font-weight: 700;
+}
+
+.stat-label {
+  font-size: 1rem;
+  color: #7f8c8d;
+}
+
+.dashboard-icon {
+  font-size: 3rem;
+  margin-bottom: 15px;
+  color: var(--secondary);
+}
+
+.login-container {
+  max-width: 400px;
+  margin: 100px auto;
+  padding: 30px;
+  background: white;
+  border-radius: 15px;
+  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.1);
+}
+
+.badge-preview {
+  max-width: 300px;
+  margin: 0 auto;
+  border: 2px solid #ddd;
+  border-radius: 10px;
+  padding: 15px;
+  background: white;
+}
+
+.photo-placeholder {
+  width: 150px;
+  height: 150px;
+  background-color: #eee;
+  border-radius: 75px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin: 0 auto;
+  font-size: 3rem;
+  color: #999;
+}
