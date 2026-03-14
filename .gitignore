@@ -1,9 +1,20 @@
+# Dependencies
 node_modules
+
+# Build
 dist
-.DS_Store
+*.local
+
+# Editor
+.vscode/*
+!.vscode/extensions.json
+
+# Logs
 *.log
-.env
-.env.local
-.vercel
-.env*.local
-.vercel
+npm-debug.log*
+
+# OS
+.DS_Store
+
+# TypeScript
+*.tsbuildinfo
