@@ -63,6 +63,22 @@ We use [Resend](https://resend.com/) to send emails (e.g. admin confirmation whe
 
 After this, sign up at `/admin-create` and you should receive the confirmation email at the address you used.
 
+### Notify host when a visitor requests entry
+
+When a visitor submits the check-in form, the app calls a serverless API that emails the selected host via [Resend](https://resend.com/). The API lives at `api/notify-host.ts` (Vercel serverless function).
+
+**Setup (Vercel):**
+
+1. In the [Vercel Dashboard](https://vercel.com/dashboard) → your project → **Settings** → **Environment Variables**, add:
+   - `RESEND_API_KEY` — your [Resend API key](https://resend.com/api-keys)
+   - `RESEND_FROM_EMAIL` (optional) — sender address, e.g. `onboarding@resend.dev` or `noreply@yourdomain.com` (must be a [verified domain](https://resend.com/domains) in Resend for production)
+
+2. Redeploy so the function gets the new env vars.
+
+**Local dev:** The notify API runs only when deployed to Vercel or when you run `vercel dev`. With `npm run dev` (Vite only), the request to `/api/notify-host` will 404; the visitor is still created in Supabase and the app shows success.
+
+**Optional:** To point the frontend at a different API base URL (e.g. for a separate backend), set `VITE_NOTIFY_API_URL` in `.env` (e.g. `VITE_NOTIFY_API_URL=https://your-api.com`). Leave unset to use the same origin (`/api/notify-host`).
+
 ## Database structure (Supabase)
 
 The app uses **Supabase as the backend**. All visitor and admin data comes from these tables; any mock or in-memory data in the code is replaced by Supabase. Create the following tables in the Supabase SQL Editor (or Table Editor).
