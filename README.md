@@ -9,18 +9,20 @@ School assignment: a simple visitor check-in system with **admin approval** (no 
 3. **Admin** logs in and goes to **Admin Review** to see all pending requests.
 4. **Admin** approves or rejects each request (optional rejection reason).
 5. **Status** becomes:
-   - **APPROVED** — visitor is allowed on-site; they appear on **Dashboard** (current visitors).
+   - **APPROVED** — visitor is allowed on-site.
    - **REJECTED** — request denied (reason stored if given).
-6. When the visitor leaves, admin **checks them out** on the Dashboard → **Status = VISITED**.
+6. Admin **checks in** the visitor on the Dashboard → **Status = CHECKED_IN** (and `visit_date` is set).
+7. When the visitor leaves, admin **checks them out** → **Status = CHECKED_OUT**.
 
 ## Statuses
 
-| Status    | Meaning                                      |
-|-----------|----------------------------------------------|
-| PENDING   | Awaiting admin approval                      |
-| APPROVED  | Admin approved; visitor is/was on-site       |
-| REJECTED  | Admin rejected the request                   |
-| VISITED   | Visitor has been checked out                 |
+| Status       | Meaning                                      |
+|--------------|----------------------------------------------|
+| PENDING      | Awaiting admin approval                      |
+| APPROVED     | Admin approved; not yet checked in           |
+| REJECTED     | Admin rejected the request                   |
+| CHECKED_IN   | Visitor is on-site (checked in)              |
+| CHECKED_OUT  | Visitor has left (checked out)               |
 
 ## Roles
 
@@ -29,10 +31,158 @@ School assignment: a simple visitor check-in system with **admin approval** (no 
 
 ## Admin Login
 
-- **Email:** `admin@school.edu`
-- **Password:** `admin123`
+Admin credentials are stored in **Supabase Auth**; the app does not use mock or hardcoded login. Create an admin user in Supabase (Authentication → Users) and add them to the `admins` table so they can access Check In, Dashboard, Visitor Log, and Admin Review.
 
-After login, admin can use: Check In, Dashboard, Visitor Log, and Admin Review.
+## Set up email with Resend
+
+We use [Resend](https://resend.com/) to send emails (e.g. admin confirmation when signing up at `/admin-create`). Resend is configured as **custom SMTP in Supabase** so Supabase Auth can send the emails.
+
+**Important:** Put your Resend API key only in the **Supabase Dashboard** (SMTP settings). Do not add it to this repo or to frontend `.env` — that would expose it.
+
+1. **Get a Resend API key**  
+   Sign up at [Resend](https://resend.com/), then create an API key at [resend.com/api-keys](https://resend.com/api-keys). If you ever shared a key (e.g. in chat), revoke it and create a new one.
+
+2. **Configure Supabase to use Resend SMTP**  
+   - Open your project in the [Supabase Dashboard](https://supabase.com/dashboard).  
+   - Go to **Project Settings** (gear) → **Authentication** → **SMTP Settings**.  
+   - Turn **Enable Custom SMTP** on and set:
+
+   | Field           | Value                |
+   |-----------------|----------------------|
+   | **Sender name** | e.g. `Visitor Management` |
+   | **Sender email**| `onboarding@resend.dev` (testing) or your verified domain in Resend (e.g. `noreply@yourdomain.com`) |
+   | **Host**        | `smtp.resend.com`    |
+   | **Port**        | `465` (or `587`)     |
+   | **Username**    | `resend`             |
+   | **Password**    | Your Resend API key  |
+
+   - Save. Supabase will send all auth emails (confirm, reset password, etc.) through Resend.
+
+3. **Optional: custom domain in Resend**  
+   For production, add and verify your domain in [Resend → Domains](https://resend.com/domains) and use that address as **Sender email** in Supabase (e.g. `noreply@yourdomain.com`). Resend’s [docs](https://resend.com/docs) describe DNS (SPF, DKIM) for better deliverability.
+
+After this, sign up at `/admin-create` and you should receive the confirmation email at the address you used.
+
+## Database structure (Supabase)
+
+The app uses **Supabase as the backend**. All visitor and admin data comes from these tables; any mock or in-memory data in the code is replaced by Supabase. Create the following tables in the Supabase SQL Editor (or Table Editor).
+
+### Table: `visitors`
+
+| Column       | Type         | Nullable | Default           | Description                    |
+|-------------|--------------|----------|-------------------|--------------------------------|
+| `id`        | `uuid`       | No       | `gen_random_uuid()`| Primary key                    |
+| `full_name` | `text`       | No       | —                 | Visitor’s full name            |
+| `email`     | `text`       | Yes      | —                 | Email address                  |
+| `phone`     | `text`       | Yes      | —                 | Phone number                   |
+| `purpose`   | `text`       | No       | —                 | Purpose of visit                |
+| `host_name` | `text`       | No       | —                 | Name of host/contact           |
+| `company`   | `text`       | Yes      | —                 | Company or organization        |
+| `status`    | `text`       | No       | `'PENDING'`       | `PENDING` \| `APPROVED` \| `REJECTED` \| `CHECKED_IN` \| `CHECKED_OUT` |
+| `visit_date`| `timestamptz`| Yes      | —                 | When the visitor checked in (set when status → CHECKED_IN) |
+| `notes`     | `text`       | Yes      | —                 | Admin notes / rejection reason |
+| `created_at`| `timestamptz`| No       | `now()`           | When the request was created   |
+| `updated_at`| `timestamptz`| No       | `now()`           | Last status/notes update       |
+
+### SQL to create the table
+
+```sql
+create table public.visitors (
+  id         uuid primary key default gen_random_uuid(),
+  full_name  text not null,
+  email      text,
+  phone      text,
+  purpose    text not null,
+  host_name  text not null,
+  company    text,
+  status     text not null default 'PENDING' check (status in ('PENDING', 'APPROVED', 'REJECTED', 'CHECKED_IN', 'CHECKED_OUT')),
+  visit_date timestamptz,
+  notes      text,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
+-- Optional: trigger to keep updated_at in sync
+create or replace function public.set_updated_at()
+returns trigger as $$
+begin
+  new.updated_at = now();
+  return new;
+end;
+$$ language plpgsql;
+
+create trigger visitors_updated_at
+  before update on public.visitors
+  for each row execute function public.set_updated_at();
+
+-- Enable RLS and allow anonymous insert (check-in form) and authenticated or service read/update
+alter table public.visitors enable row level security;
+
+create policy "Allow anonymous insert for check-in"
+  on public.visitors for insert to anon with check (true);
+
+create policy "Allow read and update for authenticated"
+  on public.visitors for all to authenticated using (true) with check (true);
+```
+
+Adjust RLS policies to match your auth setup (e.g. if admins use Supabase Auth, restrict updates to authenticated users; if you use a service key from a backend, add a policy for that).
+
+### Table: `admins` (for admin login)
+
+Admin login uses **Supabase Auth** (no mock). Who counts as an admin is determined by the `admins` table below.
+
+1. **Supabase Auth**  
+   In the dashboard: **Authentication → Users**. Create a user (e.g. `admin@school.edu`) and set a password. The app signs admins in with `supabase.auth.signInWithPassword()`.
+
+2. **`admins` table**  
+   Restricts the admin dashboard to specific users (supports multiple admins). Add a row per admin, linking to `auth.users`:
+
+| Column     | Type         | Nullable | Description                |
+|------------|--------------|----------|----------------------------|
+| `id`       | `uuid`       | No       | Primary key                |
+| `user_id`  | `uuid`       | No       | References `auth.users(id)`|
+| `email`    | `text`       | No       | Denormalized for display   |
+| `name`     | `text`       | Yes      | Admin display name         |
+| `created_at` | `timestamptz` | No     | When added as admin        |
+
+```sql
+create table public.admins (
+  id         uuid primary key default gen_random_uuid(),
+  user_id    uuid not null references auth.users(id) on delete cascade,
+  email      text not null,
+  name       text,
+  created_at timestamptz not null default now(),
+  unique (user_id)
+);
+
+alter table public.admins enable row level security;
+
+-- Let authenticated users read their own admin row (for login and dashboard check; no self-reference = no recursion)
+create policy "Allow read own admin row"
+  on public.admins for select to authenticated
+  using (user_id = auth.uid());
+
+-- Allow anonymous read so the check-in form can show the host dropdown (hosts = admins)
+create policy "Allow anon to read admins for host dropdown"
+  on public.admins for select to anon using (true);
+
+-- Allow a user to add themselves to admins (for /admin-create self-signup)
+create policy "Allow user to insert own admin row"
+  on public.admins for insert to authenticated
+  with check (auth.uid() = user_id);
+```
+
+If your `admins` table already exists without `name`, add it:  
+`alter table public.admins add column if not exists name text;`
+
+If you get **infinite recursion** on `admins`, you have an old policy that references `admins` inside its own check. Drop it and use only the non-recursive policies above:
+```sql
+drop policy if exists "Admins can read admins" on public.admins;
+```
+
+In the app, after sign-in the app checks that `auth.uid()` exists in `public.admins`; only those users can access the admin dashboard. The **Create admin** page (`/admin-create`) lets a user sign up with Supabase Auth and add themselves to `admins` (requires the policy above). The check-in page loads admins as the host list (so the selected host can be emailed for approval). The `visitors` RLS “Allow read and update for authenticated” limits visitor data to signed-in users.
+
+---
 
 ## Run the app
 

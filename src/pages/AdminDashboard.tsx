@@ -6,8 +6,9 @@ import { toast } from "sonner";
 import { LogOut, Users, Clock, CheckCircle, XCircle } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { format } from "date-fns";
+import { supabase } from "@/lib/supabase";
 
-type VisitorStatus = "PENDING" | "APPROVED" | "REJECTED" | "VISITED";
+type VisitorStatus = "PENDING" | "APPROVED" | "REJECTED" | "CHECKED_IN" | "CHECKED_OUT";
 
 interface Visitor {
   id: string;
@@ -24,41 +25,65 @@ interface Visitor {
 
 type FilterTab = "ALL" | VisitorStatus;
 
-// Mock auth: accept admin@school.edu / admin123 (set in sessionStorage for demo)
-const AUTH_KEY = "self-service-admin";
-
 const AdminDashboard = () => {
   const navigate = useNavigate();
   const [visitors, setVisitors] = useState<Visitor[]>([]);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<FilterTab>("ALL");
   const [selectedVisitor, setSelectedVisitor] = useState<Visitor | null>(null);
+  const [adminName, setAdminName] = useState<string>("");
 
   useEffect(() => {
-    const auth = sessionStorage.getItem(AUTH_KEY);
-    if (!auth) {
-      navigate("/admin/login");
-      return;
-    }
-    // Mock data when no backend
-    setVisitors([
-      {
-        id: "1",
-        full_name: "Jane Doe",
-        email: "jane@example.com",
-        phone: "+1 555 0100",
-        purpose: "Interview — Design",
-        host_name: "John Smith",
-        company: "Acme Inc.",
-        status: "PENDING",
-        created_at: new Date().toISOString(),
-        notes: null,
-      },
-    ]);
-    setLoading(false);
+    const checkAuth = async () => {
+      if (!supabase) {
+        navigate("/admin/login");
+        return;
+      }
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) {
+        navigate("/admin/login");
+        return;
+      }
+      const { data: adminRow } = await supabase
+        .from("admins")
+        .select("id, name, email")
+        .eq("user_id", session.user.id)
+        .maybeSingle();
+      if (!adminRow) {
+        await supabase.auth.signOut();
+        navigate("/admin/login");
+        return;
+      }
+      const row = adminRow as { name?: string | null; email?: string };
+      setAdminName(row.name?.trim() || row.email || session.user.email || "Admin");
+      const { data, error } = await supabase
+        .from("visitors")
+        .select("*")
+        .order("created_at", { ascending: false });
+      if (error) {
+        toast.error(error.message || "Failed to load visitors");
+        setVisitors([]);
+      } else {
+        setVisitors((data ?? []) as Visitor[]);
+      }
+      setLoading(false);
+    };
+    checkAuth();
   }, [navigate]);
 
   const updateStatus = async (id: string, status: VisitorStatus) => {
+    if (!supabase) return;
+    const { error } = await supabase
+      .from("visitors")
+      .update({
+        status,
+        ...(status === "CHECKED_IN" ? { visit_date: new Date().toISOString() } : {}),
+      })
+      .eq("id", id);
+    if (error) {
+      toast.error(error.message || "Update failed");
+      return;
+    }
     setVisitors((prev) =>
       prev.map((v) => (v.id === id ? { ...v, status } : v))
     );
@@ -66,8 +91,8 @@ const AdminDashboard = () => {
     if (selectedVisitor?.id === id) setSelectedVisitor(null);
   };
 
-  const handleLogout = () => {
-    sessionStorage.removeItem(AUTH_KEY);
+  const handleLogout = async () => {
+    await supabase?.auth.signOut();
     navigate("/admin/login");
   };
 
@@ -80,7 +105,8 @@ const AdminDashboard = () => {
     { label: "Pending", value: "PENDING", count: pendingCount },
     { label: "Approved", value: "APPROVED" },
     { label: "Rejected", value: "REJECTED" },
-    { label: "Visited", value: "VISITED" },
+    { label: "Checked in", value: "CHECKED_IN" },
+    { label: "Checked out", value: "CHECKED_OUT" },
   ];
 
   return (
@@ -88,8 +114,10 @@ const AdminDashboard = () => {
       {/* Sidebar */}
       <aside className="hidden w-64 shrink-0 border-r border-border bg-card md:block">
         <div className="flex h-14 items-center border-b border-border px-4">
-          <Users className="mr-2 h-5 w-5 text-foreground" />
-          <span className="text-sm font-semibold text-foreground">Visitor Management</span>
+          <Users className="mr-2 h-5 w-5 shrink-0 text-foreground" />
+          <span className="truncate text-sm font-semibold text-foreground">
+            {adminName || "Visitor Management"}
+          </span>
         </div>
         <nav className="space-y-1 p-3">
           <button
@@ -235,10 +263,20 @@ const AdminDashboard = () => {
                             <Button
                               size="sm"
                               variant="outline"
-                              onClick={() => updateStatus(visitor.id, "VISITED")}
+                              onClick={() => updateStatus(visitor.id, "CHECKED_IN")}
                               className="h-8"
                             >
-                              Mark Visited
+                              Check in
+                            </Button>
+                          )}
+                          {visitor.status === "CHECKED_IN" && (
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={() => updateStatus(visitor.id, "CHECKED_OUT")}
+                              className="h-8"
+                            >
+                              Check out
                             </Button>
                           )}
                         </td>
@@ -344,6 +382,27 @@ const AdminDashboard = () => {
                       className="h-10 flex-1 gap-1 border-status-rejected-border text-status-rejected-fg hover:bg-status-rejected-bg"
                     >
                       <XCircle className="h-4 w-4" /> Reject
+                    </Button>
+                  </div>
+                )}
+                {selectedVisitor.status === "APPROVED" && (
+                  <div className="flex gap-2 pt-2">
+                    <Button
+                      onClick={() => updateStatus(selectedVisitor.id, "CHECKED_IN")}
+                      className="h-10 w-full gap-1"
+                    >
+                      <CheckCircle className="h-4 w-4" /> Check in
+                    </Button>
+                  </div>
+                )}
+                {selectedVisitor.status === "CHECKED_IN" && (
+                  <div className="flex gap-2 pt-2">
+                    <Button
+                      variant="outline"
+                      onClick={() => updateStatus(selectedVisitor.id, "CHECKED_OUT")}
+                      className="h-10 w-full gap-1"
+                    >
+                      Check out
                     </Button>
                   </div>
                 )}
