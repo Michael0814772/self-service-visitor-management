@@ -64,6 +64,15 @@ const CheckIn = () => {
       toast.error("Database not configured");
       return;
     }
+    if (form.appointment_time.trim()) {
+      const chosen = new Date(form.appointment_time.trim());
+      const now = new Date();
+      now.setSeconds(0, 0);
+      if (chosen < now) {
+        toast.error("Appointment time must be now or in the future.");
+        return;
+      }
+    }
     setLoading(true);
     const { error } = await supabase.from("visitors").insert({
       full_name: form.full_name.trim(),
@@ -184,7 +193,7 @@ const CheckIn = () => {
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1.5">
               <Label htmlFor="email" className="text-sm">
-                Email
+                Email *
               </Label>
               <Input
                 id="email"
@@ -192,19 +201,21 @@ const CheckIn = () => {
                 type="email"
                 value={form.email}
                 onChange={handleChange}
+                required
                 placeholder="sarah@example.com"
                 className="h-10"
               />
             </div>
             <div className="space-y-1.5">
               <Label htmlFor="phone" className="text-sm">
-                Phone
+                Phone *
               </Label>
               <Input
                 id="phone"
                 name="phone"
                 value={form.phone}
                 onChange={handleChange}
+                required
                 placeholder="+1 234 567 890"
                 className="h-10"
               />
@@ -240,12 +251,18 @@ const CheckIn = () => {
 
           <div className="space-y-1.5">
             <Label htmlFor="appointment_time" className="text-sm">
-              Appointment time
+              Appointment time *
             </Label>
             <Input
               id="appointment_time"
               name="appointment_time"
               type="datetime-local"
+              required
+              min={(() => {
+                const d = new Date();
+                const pad = (n: number) => String(n).padStart(2, "0");
+                return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+              })()}
               value={form.appointment_time}
               onChange={handleChange}
               className="h-10"

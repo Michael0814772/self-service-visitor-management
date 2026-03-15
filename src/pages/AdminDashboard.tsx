@@ -9,7 +9,12 @@ import { format } from "date-fns";
 import { supabase } from "@/lib/supabase";
 import emailjs from "@emailjs/browser";
 
-type VisitorStatus = "PENDING" | "APPROVED" | "REJECTED" | "CHECKED_IN" | "CHECKED_OUT";
+type VisitorStatus =
+  | "PENDING"
+  | "APPROVED"
+  | "REJECTED"
+  | "CHECKED_IN"
+  | "CHECKED_OUT";
 
 interface Visitor {
   id: string;
@@ -42,7 +47,9 @@ const AdminDashboard = () => {
         navigate("/admin/login");
         return;
       }
-      const { data: { session } } = await supabase.auth.getSession();
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
       if (!session) {
         navigate("/admin/login");
         return;
@@ -73,7 +80,9 @@ const AdminDashboard = () => {
         return;
       }
       const row = adminRow as { name?: string | null; email?: string };
-      setAdminName(row.name?.trim() || row.email || session.user.email || "Admin");
+      setAdminName(
+        row.name?.trim() || row.email || session.user.email || "Admin",
+      );
       const { data, error } = await supabase
         .from("visitors")
         .select("*")
@@ -120,7 +129,7 @@ const AdminDashboard = () => {
             name: visitor!.full_name,
             purpose: visitor!.purpose,
             host_name: visitor!.host_name,
-            visit_date: format(new Date(), "MMMM d, yyyy"),
+            appointment_time: visitor!.appointment_time,
             qr_code_url: qrCodeUrl,
           });
         } catch {
@@ -137,8 +146,8 @@ const AdminDashboard = () => {
               ...(status === "CHECKED_IN" ? { checked_in_at: now } : {}),
               ...(status === "CHECKED_OUT" ? { checked_out_at: now } : {}),
             }
-          : v
-      )
+          : v,
+      ),
     );
     if (selectedVisitor?.id === id) {
       setSelectedVisitor((prev) =>
@@ -149,7 +158,7 @@ const AdminDashboard = () => {
               ...(status === "CHECKED_IN" ? { checked_in_at: now } : {}),
               ...(status === "CHECKED_OUT" ? { checked_out_at: now } : {}),
             }
-          : null
+          : null,
       );
     }
     toast.success(`Visitor ${status.toLowerCase()}`);
@@ -161,12 +170,18 @@ const AdminDashboard = () => {
   };
 
   const filtered =
-    activeTab === "ALL" ? visitors : visitors.filter((v) => v.status === activeTab);
+    activeTab === "ALL"
+      ? visitors
+      : visitors.filter((v) => v.status === activeTab);
   const pendingCount = visitors.filter((v) => v.status === "PENDING").length;
   const approvedCount = visitors.filter((v) => v.status === "APPROVED").length;
   const rejectedCount = visitors.filter((v) => v.status === "REJECTED").length;
-  const checkedInCount = visitors.filter((v) => v.status === "CHECKED_IN").length;
-  const checkedOutCount = visitors.filter((v) => v.status === "CHECKED_OUT").length;
+  const checkedInCount = visitors.filter(
+    (v) => v.status === "CHECKED_IN",
+  ).length;
+  const checkedOutCount = visitors.filter(
+    (v) => v.status === "CHECKED_OUT",
+  ).length;
 
   const tabs: { label: string; value: FilterTab; count?: number }[] = [
     { label: "All", value: "ALL", count: visitors.length },
@@ -213,7 +228,9 @@ const AdminDashboard = () => {
           <h1 className="text-base font-semibold text-foreground">
             Visitor Queue{" "}
             {pendingCount > 0 && (
-              <span className="ml-1 text-muted-foreground">({pendingCount} Pending)</span>
+              <span className="ml-1 text-muted-foreground">
+                ({pendingCount} Pending)
+              </span>
             )}
           </h1>
           <Button
@@ -240,7 +257,9 @@ const AdminDashboard = () => {
             >
               {tab.label}
               {tab.count !== undefined && (
-                <span className="ml-1.5 text-xs text-muted-foreground">{tab.count}</span>
+                <span className="ml-1.5 text-xs text-muted-foreground">
+                  {tab.count}
+                </span>
               )}
             </button>
           ))}
@@ -293,7 +312,9 @@ const AdminDashboard = () => {
                         onClick={() => setSelectedVisitor(visitor)}
                       >
                         <td className="px-4 py-3">
-                          <div className="font-medium text-foreground">{visitor.full_name}</div>
+                          <div className="font-medium text-foreground">
+                            {visitor.full_name}
+                          </div>
                         </td>
                         <td className="hidden px-4 py-3 text-muted-foreground sm:table-cell">
                           {visitor.purpose}
@@ -306,20 +327,31 @@ const AdminDashboard = () => {
                         </td>
                         <td className="hidden px-4 py-3 tabular-nums text-muted-foreground lg:table-cell">
                           {visitor.checked_in_at
-                            ? format(new Date(visitor.checked_in_at), "MMM d, HH:mm")
+                            ? format(
+                                new Date(visitor.checked_in_at),
+                                "MMM d, HH:mm",
+                              )
                             : "—"}
                         </td>
                         <td className="hidden px-4 py-3 tabular-nums text-muted-foreground lg:table-cell">
                           {visitor.checked_out_at
-                            ? format(new Date(visitor.checked_out_at), "MMM d, HH:mm")
+                            ? format(
+                                new Date(visitor.checked_out_at),
+                                "MMM d, HH:mm",
+                              )
                             : "—"}
                         </td>
-                        <td className="px-4 py-3 text-right" onClick={(e) => e.stopPropagation()}>
+                        <td
+                          className="px-4 py-3 text-right"
+                          onClick={(e) => e.stopPropagation()}
+                        >
                           {visitor.status === "PENDING" && (
                             <div className="flex items-center justify-end gap-2">
                               <Button
                                 size="sm"
-                                onClick={() => updateStatus(visitor.id, "APPROVED")}
+                                onClick={() =>
+                                  updateStatus(visitor.id, "APPROVED")
+                                }
                                 className="h-8 gap-1 bg-status-approved-fg text-primary-foreground hover:bg-status-approved-fg/90"
                               >
                                 <CheckCircle className="h-3.5 w-3.5" /> Approve
@@ -327,7 +359,9 @@ const AdminDashboard = () => {
                               <Button
                                 size="sm"
                                 variant="outline"
-                                onClick={() => updateStatus(visitor.id, "REJECTED")}
+                                onClick={() =>
+                                  updateStatus(visitor.id, "REJECTED")
+                                }
                                 className="h-8 gap-1 border-status-rejected-border text-status-rejected-fg hover:bg-status-rejected-bg"
                               >
                                 <XCircle className="h-3.5 w-3.5" /> Reject
@@ -338,7 +372,9 @@ const AdminDashboard = () => {
                             <Button
                               size="sm"
                               variant="outline"
-                              onClick={() => updateStatus(visitor.id, "CHECKED_IN")}
+                              onClick={() =>
+                                updateStatus(visitor.id, "CHECKED_IN")
+                              }
                               className="h-8"
                             >
                               Check in
@@ -348,7 +384,9 @@ const AdminDashboard = () => {
                             <Button
                               size="sm"
                               variant="outline"
-                              onClick={() => updateStatus(visitor.id, "CHECKED_OUT")}
+                              onClick={() =>
+                                updateStatus(visitor.id, "CHECKED_OUT")
+                              }
                               className="h-8"
                             >
                               Check out
@@ -385,7 +423,9 @@ const AdminDashboard = () => {
               className="fixed right-0 top-0 z-50 h-full w-full max-w-md overflow-auto border-l border-border bg-card shadow-lg"
             >
               <div className="flex h-14 items-center justify-between border-b border-border px-6">
-                <h2 className="text-sm font-semibold text-foreground">Visitor Details</h2>
+                <h2 className="text-sm font-semibold text-foreground">
+                  Visitor Details
+                </h2>
                 <button
                   type="button"
                   onClick={() => setSelectedVisitor(null)}
@@ -404,30 +444,40 @@ const AdminDashboard = () => {
                 {selectedVisitor.email && (
                   <div>
                     <p className="text-xs text-muted-foreground">Email</p>
-                    <p className="text-sm text-foreground">{selectedVisitor.email}</p>
+                    <p className="text-sm text-foreground">
+                      {selectedVisitor.email}
+                    </p>
                   </div>
                 )}
                 {selectedVisitor.phone && (
                   <div>
                     <p className="text-xs text-muted-foreground">Phone</p>
-                    <p className="text-sm text-foreground">{selectedVisitor.phone}</p>
+                    <p className="text-sm text-foreground">
+                      {selectedVisitor.phone}
+                    </p>
                   </div>
                 )}
                 <div>
                   <p className="text-xs text-muted-foreground">Host</p>
-                  <p className="text-sm text-foreground">{selectedVisitor.host_name}</p>
+                  <p className="text-sm text-foreground">
+                    {selectedVisitor.host_name}
+                  </p>
                 </div>
                 <div>
                   <p className="text-xs text-muted-foreground">Purpose</p>
-                  <p className="text-sm text-foreground">{selectedVisitor.purpose}</p>
+                  <p className="text-sm text-foreground">
+                    {selectedVisitor.purpose}
+                  </p>
                 </div>
                 <div>
-                  <p className="text-xs text-muted-foreground">Appointment time</p>
+                  <p className="text-xs text-muted-foreground">
+                    Appointment time
+                  </p>
                   <p className="text-sm tabular-nums text-foreground">
                     {selectedVisitor.appointment_time
                       ? format(
                           new Date(selectedVisitor.appointment_time),
-                          "MMM d, yyyy 'at' HH:mm"
+                          "MMM d, yyyy 'at' HH:mm",
                         )
                       : "—"}
                   </p>
@@ -443,7 +493,7 @@ const AdminDashboard = () => {
                   <p className="text-sm tabular-nums text-foreground">
                     {format(
                       new Date(selectedVisitor.created_at),
-                      "MMM d, yyyy 'at' HH:mm"
+                      "MMM d, yyyy 'at' HH:mm",
                     )}
                   </p>
                 </div>
@@ -453,7 +503,7 @@ const AdminDashboard = () => {
                     {selectedVisitor.checked_in_at
                       ? format(
                           new Date(selectedVisitor.checked_in_at),
-                          "MMM d, yyyy 'at' HH:mm"
+                          "MMM d, yyyy 'at' HH:mm",
                         )
                       : "—"}
                   </p>
@@ -464,7 +514,7 @@ const AdminDashboard = () => {
                     {selectedVisitor.checked_out_at
                       ? format(
                           new Date(selectedVisitor.checked_out_at),
-                          "MMM d, yyyy 'at' HH:mm"
+                          "MMM d, yyyy 'at' HH:mm",
                         )
                       : "—"}
                   </p>
@@ -473,14 +523,18 @@ const AdminDashboard = () => {
                 {selectedVisitor.status === "PENDING" && (
                   <div className="flex gap-2 pt-2">
                     <Button
-                      onClick={() => updateStatus(selectedVisitor.id, "APPROVED")}
+                      onClick={() =>
+                        updateStatus(selectedVisitor.id, "APPROVED")
+                      }
                       className="h-10 flex-1 gap-1 bg-status-approved-fg text-primary-foreground hover:bg-status-approved-fg/90"
                     >
                       <CheckCircle className="h-4 w-4" /> Approve
                     </Button>
                     <Button
                       variant="outline"
-                      onClick={() => updateStatus(selectedVisitor.id, "REJECTED")}
+                      onClick={() =>
+                        updateStatus(selectedVisitor.id, "REJECTED")
+                      }
                       className="h-10 flex-1 gap-1 border-status-rejected-border text-status-rejected-fg hover:bg-status-rejected-bg"
                     >
                       <XCircle className="h-4 w-4" /> Reject
@@ -490,7 +544,9 @@ const AdminDashboard = () => {
                 {selectedVisitor.status === "APPROVED" && (
                   <div className="flex gap-2 pt-2">
                     <Button
-                      onClick={() => updateStatus(selectedVisitor.id, "CHECKED_IN")}
+                      onClick={() =>
+                        updateStatus(selectedVisitor.id, "CHECKED_IN")
+                      }
                       className="h-10 w-full gap-1"
                     >
                       <CheckCircle className="h-4 w-4" /> Check in
@@ -501,7 +557,9 @@ const AdminDashboard = () => {
                   <div className="flex gap-2 pt-2">
                     <Button
                       variant="outline"
-                      onClick={() => updateStatus(selectedVisitor.id, "CHECKED_OUT")}
+                      onClick={() =>
+                        updateStatus(selectedVisitor.id, "CHECKED_OUT")
+                      }
                       className="h-10 w-full gap-1"
                     >
                       Check out
