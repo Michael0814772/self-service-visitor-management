@@ -30,7 +30,22 @@ const AdminCreate = () => {
       toast.error("Password must be at least 6 characters");
       return;
     }
+    const signUpEmail = email.trim().toLowerCase();
+    if (!signUpEmail) {
+      toast.error("Email is required");
+      return;
+    }
     setLoading(true);
+    const { data: whitelistRow } = await supabase
+      .from("admin_whitelist")
+      .select("id")
+      .eq("email", signUpEmail)
+      .maybeSingle();
+    if (!whitelistRow) {
+      setLoading(false);
+      toast.error("Not authorized as admin.");
+      return;
+    }
     const { data, error: signUpError } = await supabase.auth.signUp({
       email: email.trim(),
       password,
@@ -51,19 +66,6 @@ const AdminCreate = () => {
         "Turn off “Confirm email” in Supabase Auth so admins are created without sending email.",
       );
       return;
-    }
-    const signUpEmail = data.user.email?.trim()?.toLowerCase();
-    if (signUpEmail) {
-      const { data: whitelistRow } = await supabase
-        .from("admin_whitelist")
-        .select("id")
-        .eq("email", signUpEmail)
-        .maybeSingle();
-      if (!whitelistRow) {
-        setLoading(false);
-        toast.error("Not authorized as admin.");
-        return;
-      }
     }
     const { error: insertError } = await supabase.from("admins").insert({
       user_id: data.user.id,
