@@ -236,7 +236,29 @@ If you get **infinite recursion** on `admins`, you have an old policy that refer
 drop policy if exists "Admins can read admins" on public.admins;
 ```
 
-In the app, after sign-in the app checks that `auth.uid()` exists in `public.admins`; only those users can access the admin dashboard. The **Create admin** page (`/admin-create`) lets a user sign up with Supabase Auth and add themselves to `admins` (requires the policy above). The check-in page loads admins as the host list (so the selected host can be emailed for approval). The `visitors` RLS “Allow read and update for authenticated” limits visitor data to signed-in users.
+### Table: `admin_whitelist`
+
+Only emails listed here are allowed to sign in as admin or create an admin account. If the signed-in user’s email is not in this table, the app shows **“Not authorized as admin.”**
+
+```sql
+create table public.admin_whitelist (
+  id         uuid primary key default gen_random_uuid(),
+  email      text not null unique,
+  created_at timestamptz default now()
+);
+
+-- Allow the app to check if an email is whitelisted (e.g. authenticated users or anon, depending on when you check)
+alter table public.admin_whitelist enable row level security;
+create policy "Allow read admin_whitelist for auth check"
+  on public.admin_whitelist for select to authenticated using (true);
+-- Optional: allow anon so /admin-create can check before sign-up (or check after sign-up with authenticated)
+create policy "Allow anon read admin_whitelist"
+  on public.admin_whitelist for select to anon using (true);
+```
+
+Add rows for each allowed admin email, e.g. `insert into public.admin_whitelist (email) values ('admin@school.edu');`
+
+In the app, after sign-in the app checks that the user’s email is in `admin_whitelist`, then that `auth.uid()` exists in `public.admins`; only then can they access the admin dashboard. The **Create admin** page (`/admin-create`) lets a user sign up with Supabase Auth and add themselves to `admins` (requires the policy above). The check-in page loads admins as the host list (so the selected host can be emailed for approval). The `visitors` RLS “Allow read and update for authenticated” limits visitor data to signed-in users.
 
 ---
 

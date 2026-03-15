@@ -46,6 +46,21 @@ const AdminDashboard = () => {
         navigate("/admin/login");
         return;
       }
+      const sessionEmail = session.user.email?.trim()?.toLowerCase();
+      if (sessionEmail) {
+        const { data: whitelistRow } = await supabase
+          .from("admin_whitelist")
+          .select("id")
+          .eq("email", sessionEmail)
+          .maybeSingle();
+        if (!whitelistRow) {
+          await supabase.auth.signOut();
+          toast.error("Not authorized as admin.");
+          navigate("/admin/login");
+          return;
+        }
+      }
+
       const { data: adminRow } = await supabase
         .from("admins")
         .select("id, name, email")

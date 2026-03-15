@@ -34,6 +34,20 @@ const AdminLogin = () => {
       return;
     }
 
+    const loginEmail = data.user.email?.trim()?.toLowerCase();
+    if (loginEmail) {
+      const { data: whitelistRow } = await supabase
+        .from("admin_whitelist")
+        .select("id")
+        .eq("email", loginEmail)
+        .maybeSingle();
+      if (!whitelistRow) {
+        await supabase.auth.signOut();
+        toast.error("Not authorized as admin.");
+        return;
+      }
+    }
+
     const { data: adminRow, error: adminError } = await supabase
       .from("admins")
       .select("id")
