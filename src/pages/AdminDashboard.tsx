@@ -18,6 +18,7 @@ interface Visitor {
   phone: string | null;
   purpose: string;
   host_name: string;
+  appointment_time: string | null;
   status: VisitorStatus;
   created_at: string;
   checked_in_at: string | null;
@@ -419,6 +420,17 @@ const AdminDashboard = () => {
                 <div>
                   <p className="text-xs text-muted-foreground">Purpose</p>
                   <p className="text-sm text-foreground">{selectedVisitor.purpose}</p>
+                </div>
+                <div>
+                  <p className="text-xs text-muted-foreground">Appointment time</p>
+                  <p className="text-sm tabular-nums text-foreground">
+                    {selectedVisitor.appointment_time
+                      ? format(
+                          new Date(selectedVisitor.appointment_time),
+                          "MMM d, yyyy 'at' HH:mm"
+                        )
+                      : "—"}
+                  </p>
                 </div>
                 <div>
                   <p className="text-xs text-muted-foreground">Status</p>
