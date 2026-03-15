@@ -24,6 +24,7 @@ const CheckIn = () => {
     host_id: "",
     host_name: "",
     host_email: "",
+    appointment_time: "",
   });
 
   useEffect(() => {
@@ -70,6 +71,9 @@ const CheckIn = () => {
       phone: form.phone.trim() || null,
       purpose: form.purpose.trim(),
       host_name: form.host_name.trim(),
+      appointment_time: form.appointment_time.trim()
+        ? new Date(form.appointment_time.trim()).toISOString()
+        : null,
     });
     if (error) {
       setLoading(false);
@@ -131,6 +135,7 @@ const CheckIn = () => {
                 host_id: "",
                 host_name: "",
                 host_email: "",
+                appointment_time: "",
               });
             }}
           >
@@ -231,6 +236,20 @@ const CheckIn = () => {
             {hosts.length === 0 && supabase && (
               <p className="text-xs text-muted-foreground">No hosts available. Add admins in the dashboard.</p>
             )}
+          </div>
+
+          <div className="space-y-1.5">
+            <Label htmlFor="appointment_time" className="text-sm">
+              Appointment time
+            </Label>
+            <Input
+              id="appointment_time"
+              name="appointment_time"
+              type="datetime-local"
+              value={form.appointment_time}
+              onChange={handleChange}
+              className="h-10"
+            />
           </div>
 
           <div className="space-y-1.5">
