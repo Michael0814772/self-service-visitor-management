@@ -18,7 +18,6 @@ interface Visitor {
   phone: string | null;
   purpose: string;
   host_name: string;
-  company: string | null;
   status: VisitorStatus;
   created_at: string;
   checked_in_at: string | null;
@@ -279,9 +278,6 @@ const AdminDashboard = () => {
                       >
                         <td className="px-4 py-3">
                           <div className="font-medium text-foreground">{visitor.full_name}</div>
-                          <div className="text-xs text-muted-foreground">
-                            {visitor.company || "—"}
-                          </div>
                         </td>
                         <td className="hidden px-4 py-3 text-muted-foreground sm:table-cell">
                           {visitor.purpose}
@@ -399,12 +395,6 @@ const AdminDashboard = () => {
                   <div>
                     <p className="text-xs text-muted-foreground">Phone</p>
                     <p className="text-sm text-foreground">{selectedVisitor.phone}</p>
-                  </div>
-                )}
-                {selectedVisitor.company && (
-                  <div>
-                    <p className="text-xs text-muted-foreground">Company</p>
-                    <p className="text-sm text-foreground">{selectedVisitor.company}</p>
                   </div>
                 )}
                 <div>

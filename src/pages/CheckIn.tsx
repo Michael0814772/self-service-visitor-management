@@ -24,7 +24,6 @@ const CheckIn = () => {
     host_id: "",
     host_name: "",
     host_email: "",
-    company: "",
   });
 
   useEffect(() => {
@@ -71,7 +70,6 @@ const CheckIn = () => {
       phone: form.phone.trim() || null,
       purpose: form.purpose.trim(),
       host_name: form.host_name.trim(),
-      company: form.company.trim() || null,
     });
     if (error) {
       setLoading(false);
@@ -133,7 +131,6 @@ const CheckIn = () => {
                 host_id: "",
                 host_name: "",
                 host_email: "",
-                company: "",
               });
             }}
           >
@@ -207,20 +204,6 @@ const CheckIn = () => {
                 className="h-10"
               />
             </div>
-          </div>
-
-          <div className="space-y-1.5">
-            <Label htmlFor="company" className="text-sm">
-              Company
-            </Label>
-            <Input
-              id="company"
-              name="company"
-              value={form.company}
-              onChange={handleChange}
-              placeholder="Acme Inc."
-              className="h-10"
-            />
           </div>
 
           <div className="space-y-1.5">
