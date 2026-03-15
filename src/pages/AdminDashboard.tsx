@@ -7,6 +7,7 @@ import { LogOut, Users, Clock, CheckCircle, XCircle } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { format } from "date-fns";
 import { supabase } from "@/lib/supabase";
+import emailjs from "@emailjs/browser";
 
 type VisitorStatus = "PENDING" | "APPROVED" | "REJECTED" | "CHECKED_IN" | "CHECKED_OUT";
 
@@ -20,6 +21,8 @@ interface Visitor {
   company: string | null;
   status: VisitorStatus;
   created_at: string;
+  checked_in_at: string | null;
+  checked_out_at: string | null;
   notes: string | null;
 }
 
@@ -73,22 +76,68 @@ const AdminDashboard = () => {
 
   const updateStatus = async (id: string, status: VisitorStatus) => {
     if (!supabase) return;
+    const visitor = visitors.find((v) => v.id === id);
+    const now = new Date().toISOString();
     const { error } = await supabase
       .from("visitors")
       .update({
         status,
-        ...(status === "CHECKED_IN" ? { visit_date: new Date().toISOString() } : {}),
+        ...(status === "CHECKED_IN" ? { checked_in_at: now } : {}),
+        ...(status === "CHECKED_OUT" ? { checked_out_at: now } : {}),
       })
       .eq("id", id);
     if (error) {
       toast.error(error.message || "Update failed");
       return;
     }
+    const recipientEmail = visitor?.email?.trim();
+    if (status === "APPROVED" && recipientEmail) {
+      const serviceId = import.meta.env.VITE_EMAILJS_SERVICE_ID;
+      const templateId = import.meta.env.VITE_EMAILJS_APPROVAL_TEMPLATE_ID;
+      const publicKey = import.meta.env.VITE_EMAILJS_PUBLIC_KEY;
+      if (serviceId && templateId && publicKey) {
+        try {
+          const qrCodeUrl = `https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(visitor!.id)}`;
+          emailjs.init(publicKey);
+          await emailjs.send(serviceId, templateId, {
+            email: recipientEmail,
+            to_email: recipientEmail,
+            name: visitor!.full_name,
+            purpose: visitor!.purpose,
+            host_name: visitor!.host_name,
+            visit_date: format(new Date(), "MMMM d, yyyy"),
+            qr_code_url: qrCodeUrl,
+          });
+        } catch {
+          // Email is best-effort
+        }
+      }
+    }
     setVisitors((prev) =>
-      prev.map((v) => (v.id === id ? { ...v, status } : v))
+      prev.map((v) =>
+        v.id === id
+          ? {
+              ...v,
+              status,
+              ...(status === "CHECKED_IN" ? { checked_in_at: now } : {}),
+              ...(status === "CHECKED_OUT" ? { checked_out_at: now } : {}),
+            }
+          : v
+      )
     );
+    if (selectedVisitor?.id === id) {
+      setSelectedVisitor((prev) =>
+        prev
+          ? {
+              ...prev,
+              status,
+              ...(status === "CHECKED_IN" ? { checked_in_at: now } : {}),
+              ...(status === "CHECKED_OUT" ? { checked_out_at: now } : {}),
+            }
+          : null
+      );
+    }
     toast.success(`Visitor ${status.toLowerCase()}`);
-    if (selectedVisitor?.id === id) setSelectedVisitor(null);
   };
 
   const handleLogout = async () => {
@@ -99,14 +148,18 @@ const AdminDashboard = () => {
   const filtered =
     activeTab === "ALL" ? visitors : visitors.filter((v) => v.status === activeTab);
   const pendingCount = visitors.filter((v) => v.status === "PENDING").length;
+  const approvedCount = visitors.filter((v) => v.status === "APPROVED").length;
+  const rejectedCount = visitors.filter((v) => v.status === "REJECTED").length;
+  const checkedInCount = visitors.filter((v) => v.status === "CHECKED_IN").length;
+  const checkedOutCount = visitors.filter((v) => v.status === "CHECKED_OUT").length;
 
   const tabs: { label: string; value: FilterTab; count?: number }[] = [
     { label: "All", value: "ALL", count: visitors.length },
     { label: "Pending", value: "PENDING", count: pendingCount },
-    { label: "Approved", value: "APPROVED" },
-    { label: "Rejected", value: "REJECTED" },
-    { label: "Checked in", value: "CHECKED_IN" },
-    { label: "Checked out", value: "CHECKED_OUT" },
+    { label: "Approved", value: "APPROVED", count: approvedCount },
+    { label: "Rejected", value: "REJECTED", count: rejectedCount },
+    { label: "Checked in", value: "CHECKED_IN", count: checkedInCount },
+    { label: "Checked out", value: "CHECKED_OUT", count: checkedOutCount },
   ];
 
   return (
@@ -201,7 +254,10 @@ const AdminDashboard = () => {
                       Status
                     </th>
                     <th className="hidden px-4 py-3 text-left font-medium text-muted-foreground lg:table-cell">
-                      Time
+                      Check-in
+                    </th>
+                    <th className="hidden px-4 py-3 text-left font-medium text-muted-foreground lg:table-cell">
+                      Check-out
                     </th>
                     <th className="px-4 py-3 text-right font-medium text-muted-foreground">
                       Actions
@@ -237,7 +293,14 @@ const AdminDashboard = () => {
                           <StatusBadge status={visitor.status} />
                         </td>
                         <td className="hidden px-4 py-3 tabular-nums text-muted-foreground lg:table-cell">
-                          {format(new Date(visitor.created_at), "MMM d, HH:mm")}
+                          {visitor.checked_in_at
+                            ? format(new Date(visitor.checked_in_at), "MMM d, HH:mm")
+                            : "—"}
+                        </td>
+                        <td className="hidden px-4 py-3 tabular-nums text-muted-foreground lg:table-cell">
+                          {visitor.checked_out_at
+                            ? format(new Date(visitor.checked_out_at), "MMM d, HH:mm")
+                            : "—"}
                         </td>
                         <td className="px-4 py-3 text-right" onClick={(e) => e.stopPropagation()}>
                           {visitor.status === "PENDING" && (
@@ -359,12 +422,34 @@ const AdminDashboard = () => {
                   </div>
                 </div>
                 <div>
-                  <p className="text-xs text-muted-foreground">Checked in</p>
+                  <p className="text-xs text-muted-foreground">Requested at</p>
                   <p className="text-sm tabular-nums text-foreground">
                     {format(
                       new Date(selectedVisitor.created_at),
                       "MMM d, yyyy 'at' HH:mm"
                     )}
+                  </p>
+                </div>
+                <div>
+                  <p className="text-xs text-muted-foreground">Check-in at</p>
+                  <p className="text-sm tabular-nums text-foreground">
+                    {selectedVisitor.checked_in_at
+                      ? format(
+                          new Date(selectedVisitor.checked_in_at),
+                          "MMM d, yyyy 'at' HH:mm"
+                        )
+                      : "—"}
+                  </p>
+                </div>
+                <div>
+                  <p className="text-xs text-muted-foreground">Check-out at</p>
+                  <p className="text-sm tabular-nums text-foreground">
+                    {selectedVisitor.checked_out_at
+                      ? format(
+                          new Date(selectedVisitor.checked_out_at),
+                          "MMM d, yyyy 'at' HH:mm"
+                        )
+                      : "—"}
                   </p>
                 </div>
 

@@ -11,7 +11,7 @@ School assignment: a simple visitor check-in system with **admin approval** (no 
 5. **Status** becomes:
    - **APPROVED** — visitor is allowed on-site.
    - **REJECTED** — request denied (reason stored if given).
-6. Admin **checks in** the visitor on the Dashboard → **Status = CHECKED_IN** (and `visit_date` is set).
+6. Admin **checks in** the visitor on the Dashboard → **Status = CHECKED_IN** (and `checked_in_at` is set).
 7. When the visitor leaves, admin **checks them out** → **Status = CHECKED_OUT**.
 
 ## Statuses
@@ -63,21 +63,53 @@ We use [Resend](https://resend.com/) to send emails (e.g. admin confirmation whe
 
 After this, sign up at `/admin-create` and you should receive the confirmation email at the address you used.
 
-### Notify host when a visitor requests entry
+### Notify admin when a visitor submits
 
-When a visitor submits the check-in form, the app calls a serverless API that emails the selected host via [Resend](https://resend.com/). The API lives at `api/notify-host.ts` (Vercel serverless function).
+When a visitor submits the check-in form, the app sends an email to the selected host (admin) via [EmailJS](https://www.emailjs.com/) so they can review the request.
 
-**Setup (Vercel):**
+**Setup:**
 
-1. In the [Vercel Dashboard](https://vercel.com/dashboard) → your project → **Settings** → **Environment Variables**, add:
-   - `RESEND_API_KEY` — your [Resend API key](https://resend.com/api-keys)
-   - `RESEND_FROM_EMAIL` (optional) — sender address, e.g. `onboarding@resend.dev` or `noreply@yourdomain.com` (must be a [verified domain](https://resend.com/domains) in Resend for production)
+1. Sign up at [EmailJS](https://www.emailjs.com/) and create an **Email Service** (e.g. Gmail) and note the **Service ID**. Get your **Public Key** from [Account](https://dashboard.emailjs.com/admin/account).
 
-2. Redeploy so the function gets the new env vars.
+2. Create an **Email Template** for the admin notification. Set **To Email** to `{{email}}`. Example body:
 
-**Local dev:** The notify API runs only when deployed to Vercel or when you run `vercel dev`. With `npm run dev` (Vite only), the request to `/api/notify-host` will 404; the visitor is still created in Supabase and the app shows success.
+   ```
+   Hello {{Admin}},
 
-**Optional:** To point the frontend at a different API base URL (e.g. for a separate backend), set `VITE_NOTIFY_API_URL` in `.env` (e.g. `VITE_NOTIFY_API_URL=https://your-api.com`). Leave unset to use the same origin (`/api/notify-host`).
+   A visitor has submitted a request that requires your approval.
+
+   Visitor Information:
+   Name: {{name}}
+   Purpose: {{purpose}}
+   Host: {{host_name}}
+   Visit Date: {{visit_date}}
+
+   Action required:
+   Please log in to review this request.
+
+   Login here:
+   {{admin_link}}
+
+   Regards,
+   Unilag.Inc
+   Visitor Management Team
+   ```
+
+   Template variables: `{{email}}` (recipient), `{{Admin}}`, `{{name}}`, `{{purpose}}`, `{{host_name}}`, `{{visit_date}}`, `{{admin_link}}`.
+
+3. In `.env` set:
+   - `VITE_EMAILJS_SERVICE_ID`
+   - `VITE_EMAILJS_PUBLIC_KEY`
+   - `VITE_EMAILJS_ADMIN_NOTIFY_TEMPLATE_ID` — the template ID for this admin-notify email
+
+**Approval email to visitor:** When an admin approves a request, the app can send the visitor an email using a second template. Create another template in EmailJS with:
+   - **To Email:** set to `{{email}}` (the app passes the visitor’s email as `email` and `to_email`; use either variable in the To field)
+   - **Subject:** e.g. `Your visit request has been approved`
+   - **Body variables:** `{{name}}`, `{{purpose}}`, `{{host_name}}`, `{{visit_date}}`, `{{qr_code_url}}`
+   - To show a QR code (for entry verification), add in the template:  
+     `<img src="{{qr_code_url}}" alt="QR Code" width="200" height="200" />`  
+     The QR code encodes the visit ID so staff can scan to verify.
+   - Add `VITE_EMAILJS_APPROVAL_TEMPLATE_ID` to `.env` with that template’s ID.
 
 ## Database structure (Supabase)
 
@@ -95,7 +127,8 @@ The app uses **Supabase as the backend**. All visitor and admin data comes from 
 | `host_name` | `text`       | No       | —                 | Name of host/contact           |
 | `company`   | `text`       | Yes      | —                 | Company or organization        |
 | `status`    | `text`       | No       | `'PENDING'`       | `PENDING` \| `APPROVED` \| `REJECTED` \| `CHECKED_IN` \| `CHECKED_OUT` |
-| `visit_date`| `timestamptz`| Yes      | —                 | When the visitor checked in (set when status → CHECKED_IN) |
+| `checked_in_at`  | `timestamptz`| Yes      | —                 | Check-in time (set when status → CHECKED_IN) |
+| `checked_out_at` | `timestamptz`| Yes      | —                 | Check-out time (set when status → CHECKED_OUT) |
 | `notes`     | `text`       | Yes      | —                 | Admin notes / rejection reason |
 | `created_at`| `timestamptz`| No       | `now()`           | When the request was created   |
 | `updated_at`| `timestamptz`| No       | `now()`           | Last status/notes update       |
@@ -112,7 +145,8 @@ create table public.visitors (
   host_name  text not null,
   company    text,
   status     text not null default 'PENDING' check (status in ('PENDING', 'APPROVED', 'REJECTED', 'CHECKED_IN', 'CHECKED_OUT')),
-  visit_date timestamptz,
+  checked_in_at  timestamptz,
+  checked_out_at timestamptz,
   notes      text,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
@@ -140,6 +174,14 @@ create policy "Allow anonymous insert for check-in"
 create policy "Allow read and update for authenticated"
   on public.visitors for all to authenticated using (true) with check (true);
 ```
+
+If your `visitors` table already exists:  
+- If you have `visit_date` but no `checked_in_at`, rename and add check-out:  
+  `alter table public.visitors rename column visit_date to checked_in_at;`  
+  `alter table public.visitors add column if not exists checked_out_at timestamptz;`  
+- If you have neither:  
+  `alter table public.visitors add column if not exists checked_in_at timestamptz;`  
+  `alter table public.visitors add column if not exists checked_out_at timestamptz;`
 
 Adjust RLS policies to match your auth setup (e.g. if admins use Supabase Auth, restrict updates to authenticated users; if you use a service key from a backend, add a policy for that).
 
