@@ -20,7 +20,9 @@ const CheckIn = () => {
     email: "",
     phone: "",
     purpose: "",
+    host_id: "",
     host_name: "",
+    host_email: "",
     company: "",
   });
 
@@ -34,7 +36,20 @@ const CheckIn = () => {
   }, []);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
-    setForm((prev) => ({ ...prev, [e.target.name]: e.target.value }));
+    const { name, value } = e.target;
+    if (name === "host_id") {
+      const host = hosts.find((h) => h.id === value);
+      if (host) {
+        setForm((prev) => ({
+          ...prev,
+          host_id: value,
+          host_name: host.name?.trim() || host.email,
+          host_email: host.email,
+        }));
+        return;
+      }
+    }
+    setForm((prev) => ({ ...prev, [name]: value }));
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -52,11 +67,30 @@ const CheckIn = () => {
       host_name: form.host_name.trim(),
       company: form.company.trim() || null,
     });
-    setLoading(false);
     if (error) {
+      setLoading(false);
       toast.error(error.message || "Request failed");
       return;
     }
+    if (form.host_email) {
+      try {
+        const base = import.meta.env.VITE_NOTIFY_API_URL ?? "";
+        await fetch(`${base}/api/notify-host`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            hostEmail: form.host_email,
+            visitorName: form.full_name.trim(),
+            visitorEmail: form.email.trim() || undefined,
+            company: form.company.trim() || undefined,
+            purpose: form.purpose.trim(),
+          }),
+        });
+      } catch {
+        // Email is best-effort; visitor was already created
+      }
+    }
+    setLoading(false);
     setSubmitted(true);
     toast.success("Request submitted");
   };
@@ -82,7 +116,9 @@ const CheckIn = () => {
                 email: "",
                 phone: "",
                 purpose: "",
+                host_id: "",
                 host_name: "",
+                host_email: "",
                 company: "",
               });
             }}
@@ -174,13 +210,13 @@ const CheckIn = () => {
           </div>
 
           <div className="space-y-1.5">
-            <Label htmlFor="host_name" className="text-sm">
+            <Label htmlFor="host_id" className="text-sm">
               Host (who are you visiting?) *
             </Label>
             <select
-              id="host_name"
-              name="host_name"
-              value={form.host_name}
+              id="host_id"
+              name="host_id"
+              value={form.host_id}
               onChange={handleChange}
               required
               className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
@@ -189,7 +225,7 @@ const CheckIn = () => {
               {hosts.map((h) => {
                 const label = h.name?.trim() || h.email;
                 return (
-                  <option key={h.id} value={label}>
+                  <option key={h.id} value={h.id}>
                     {label}
                   </option>
                 );
