@@ -4,6 +4,7 @@ import Index from "@/pages/Index";
 import CheckIn from "@/pages/CheckIn";
 import AdminLogin from "@/pages/AdminLogin";
 import AdminDashboard from "@/pages/AdminDashboard";
+import AdminCreate from "@/pages/AdminCreate";
 import NotFound from "@/pages/NotFound";
 
 const App = () => (
@@ -14,6 +15,7 @@ const App = () => (
         <Route path="/" element={<Index />} />
         <Route path="/check-in" element={<CheckIn />} />
         <Route path="/admin/login" element={<AdminLogin />} />
+        <Route path="/admin-create" element={<AdminCreate />} />
         <Route path="/admin" element={<AdminDashboard />} />
         <Route path="*" element={<NotFound />} />
       </Routes>

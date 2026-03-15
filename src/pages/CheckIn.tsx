@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -6,11 +6,15 @@ import { Textarea } from "@/components/ui/textarea";
 import { toast } from "sonner";
 import { CheckCircle, ArrowLeft } from "lucide-react";
 import { useNavigate } from "react-router";
+import { supabase } from "@/lib/supabase";
+
+type Host = { id: string; name: string | null; email: string };
 
 const CheckIn = () => {
   const navigate = useNavigate();
   const [submitted, setSubmitted] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [hosts, setHosts] = useState<Host[]>([]);
   const [form, setForm] = useState({
     full_name: "",
     email: "",
@@ -20,16 +24,39 @@ const CheckIn = () => {
     company: "",
   });
 
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
+  useEffect(() => {
+    if (!supabase) return;
+    supabase
+      .from("admins")
+      .select("id, name, email")
+      .order("name", { ascending: true, nullsFirst: false })
+      .then(({ data }) => setHosts((data ?? []) as Host[]));
+  }, []);
+
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
     setForm((prev) => ({ ...prev, [e.target.name]: e.target.value }));
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!supabase) {
+      toast.error("Database not configured");
+      return;
+    }
     setLoading(true);
-    // TODO: replace with real API / Supabase when backend is connected
-    await new Promise((r) => setTimeout(r, 600));
+    const { error } = await supabase.from("visitors").insert({
+      full_name: form.full_name.trim(),
+      email: form.email.trim() || null,
+      phone: form.phone.trim() || null,
+      purpose: form.purpose.trim(),
+      host_name: form.host_name.trim(),
+      company: form.company.trim() || null,
+    });
     setLoading(false);
+    if (error) {
+      toast.error(error.message || "Request failed");
+      return;
+    }
     setSubmitted(true);
     toast.success("Request submitted");
   };
@@ -150,15 +177,27 @@ const CheckIn = () => {
             <Label htmlFor="host_name" className="text-sm">
               Host (who are you visiting?) *
             </Label>
-            <Input
+            <select
               id="host_name"
               name="host_name"
               value={form.host_name}
               onChange={handleChange}
               required
-              placeholder="John Doe — Design Dept"
-              className="h-10"
-            />
+              className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+            >
+              <option value="">Select host</option>
+              {hosts.map((h) => {
+                const label = h.name?.trim() || h.email;
+                return (
+                  <option key={h.id} value={label}>
+                    {label}
+                  </option>
+                );
+              })}
+            </select>
+            {hosts.length === 0 && supabase && (
+              <p className="text-xs text-muted-foreground">No hosts available. Add admins in the dashboard.</p>
+            )}
           </div>
 
           <div className="space-y-1.5">

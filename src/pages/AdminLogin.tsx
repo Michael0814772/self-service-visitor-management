@@ -5,6 +5,7 @@ import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
 import { useNavigate } from "react-router";
 import { ArrowLeft } from "lucide-react";
+import { supabase } from "@/lib/supabase";
 
 const AdminLogin = () => {
   const navigate = useNavigate();
@@ -14,16 +15,42 @@ const AdminLogin = () => {
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
-    setLoading(true);
-    // TODO: replace with real Supabase auth when backend is connected
-    await new Promise((r) => setTimeout(r, 600));
-    setLoading(false);
-    if (email === "admin@school.edu" && password === "admin123") {
-      sessionStorage.setItem("self-service-admin", "1");
-      navigate("/admin");
+    if (!supabase) {
+      toast.error("Database not configured");
       return;
     }
-    toast.error("Invalid credentials");
+    setLoading(true);
+    const { data, error } = await supabase.auth.signInWithPassword({
+      email: email.trim(),
+      password,
+    });
+    setLoading(false);
+    if (error) {
+      toast.error(error.message || "Invalid credentials");
+      return;
+    }
+    if (!data.user) {
+      toast.error("Invalid credentials");
+      return;
+    }
+
+    const { data: adminRow, error: adminError } = await supabase
+      .from("admins")
+      .select("id")
+      .eq("user_id", data.user.id)
+      .maybeSingle();
+    if (adminError) {
+      await supabase.auth.signOut();
+      toast.error(adminError.message || "Could not verify admin.");
+      return;
+    }
+    if (!adminRow) {
+      await supabase.auth.signOut();
+      toast.error("Not an admin. Create an admin account first.");
+      return;
+    }
+    toast.success("Signed in");
+    navigate("/admin");
   };
 
   return (
@@ -79,6 +106,17 @@ const AdminLogin = () => {
           <Button type="submit" disabled={loading} className="h-10 w-full">
             {loading ? "Signing in…" : "Sign in"}
           </Button>
+
+          <p className="mt-4 text-center text-sm text-muted-foreground">
+            No account?{" "}
+            <button
+              type="button"
+              className="font-medium text-foreground underline-offset-4 hover:underline"
+              onClick={() => navigate("/admin-create")}
+            >
+              Create admin account
+            </button>
+          </p>
         </form>
       </div>
     </div>
