@@ -7,6 +7,7 @@ import { toast } from "sonner";
 import { CheckCircle, ArrowLeft } from "lucide-react";
 import { useNavigate } from "react-router";
 import { supabase } from "@/lib/supabase";
+import emailjs from "@emailjs/browser";
 
 type Host = { id: string; name: string | null; email: string };
 
@@ -33,6 +34,11 @@ const CheckIn = () => {
       .select("id, name, email")
       .order("name", { ascending: true, nullsFirst: false })
       .then(({ data }) => setHosts((data ?? []) as Host[]));
+  }, []);
+
+  useEffect(() => {
+    const key = import.meta.env.VITE_EMAILJS_PUBLIC_KEY;
+    if (key) emailjs.init(key);
   }, []);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
@@ -72,19 +78,27 @@ const CheckIn = () => {
       toast.error(error.message || "Request failed");
       return;
     }
-    if (form.host_email) {
+    const hostEmail = form.host_email?.trim();
+    const serviceId = import.meta.env.VITE_EMAILJS_SERVICE_ID;
+    const publicKey = import.meta.env.VITE_EMAILJS_PUBLIC_KEY;
+    const adminNotifyTemplateId = import.meta.env.VITE_EMAILJS_ADMIN_NOTIFY_TEMPLATE_ID;
+    if (hostEmail && serviceId && publicKey && adminNotifyTemplateId) {
       try {
-        const base = import.meta.env.VITE_NOTIFY_API_URL ?? "";
-        await fetch(`${base}/api/notify-host`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            hostEmail: form.host_email,
-            visitorName: form.full_name.trim(),
-            visitorEmail: form.email.trim() || undefined,
-            company: form.company.trim() || undefined,
-            purpose: form.purpose.trim(),
+        const adminLink = `${typeof window !== "undefined" ? window.location.origin : ""}/admin/login`;
+        await emailjs.send(serviceId, adminNotifyTemplateId, {
+          email: hostEmail,
+          to_email: hostEmail,
+          Admin: form.host_name.trim(),
+          name: form.full_name.trim(),
+          purpose: form.purpose.trim(),
+          host_name: form.host_name.trim(),
+          visit_date: new Date().toLocaleDateString("en-US", {
+            weekday: "long",
+            year: "numeric",
+            month: "long",
+            day: "numeric",
           }),
+          admin_link: adminLink,
         });
       } catch {
         // Email is best-effort; visitor was already created
