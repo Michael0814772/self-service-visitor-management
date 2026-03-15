@@ -52,6 +52,19 @@ const AdminCreate = () => {
       );
       return;
     }
+    const signUpEmail = data.user.email?.trim()?.toLowerCase();
+    if (signUpEmail) {
+      const { data: whitelistRow } = await supabase
+        .from("admin_whitelist")
+        .select("id")
+        .eq("email", signUpEmail)
+        .maybeSingle();
+      if (!whitelistRow) {
+        setLoading(false);
+        toast.error("Not authorized as admin.");
+        return;
+      }
+    }
     const { error: insertError } = await supabase.from("admins").insert({
       user_id: data.user.id,
       email: data.user.email ?? email.trim(),
