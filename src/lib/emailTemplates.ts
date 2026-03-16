@@ -45,6 +45,7 @@ export function getApprovalMessage(data: {
   appointment_time: string | null | undefined;
   duration_minutes?: number;
   qr_code_url: string;
+  badge_url: string;
 }): string {
   const appointmentDate =
     data.appointment_time != null && data.appointment_time !== ""
@@ -83,6 +84,9 @@ Duration: ${durationLabel}<br><br>
 
 <b>Your QR code:</b><br>
 <img src="${data.qr_code_url}" width="200" height="200"/><br><br>
+
+You can print your visitor badge here:<br>
+<a href="${data.badge_url}">${data.badge_url}</a><br><br>
 
 Please bring your QR code for entry verification.
 `;

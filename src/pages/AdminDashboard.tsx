@@ -149,7 +149,12 @@ const AdminDashboard = () => {
             typeof window !== "undefined"
               ? window.location.origin
               : "https://example.com";
+          const token =
+            typeof window !== "undefined"
+              ? window.btoa(visitor!.id)
+              : visitor!.id;
           const qrTarget = `${baseUrl}/visit/${visitor!.id}`;
+          const badgeUrl = `${baseUrl}/badge?t=${encodeURIComponent(token)}`;
           const qrCodeUrl = `https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(
             qrTarget,
           )}`;
@@ -162,6 +167,7 @@ const AdminDashboard = () => {
                 ? durationMinutes
                 : visitor!.duration_minutes ?? undefined,
             qr_code_url: qrCodeUrl,
+            badge_url: badgeUrl,
           });
           emailjs.init(publicKey);
           await emailjs.send(serviceId, templateId, {

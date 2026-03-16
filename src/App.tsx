@@ -6,6 +6,7 @@ import AdminLogin from "@/pages/AdminLogin";
 import AdminDashboard from "@/pages/AdminDashboard";
 import AdminCreate from "@/pages/AdminCreate";
 import VisitorQrCheckIn from "@/pages/VisitorQrCheckIn";
+import VisitorBadge from "@/pages/VisitorBadge";
 import NotFound from "@/pages/NotFound";
 
 const App = () => (
@@ -19,6 +20,7 @@ const App = () => (
         <Route path="/admin-create" element={<AdminCreate />} />
         <Route path="/admin" element={<AdminDashboard />} />
         <Route path="/visit/:id" element={<VisitorQrCheckIn />} />
+        <Route path="/badge" element={<VisitorBadge />} />
         <Route path="*" element={<NotFound />} />
       </Routes>
     </BrowserRouter>
