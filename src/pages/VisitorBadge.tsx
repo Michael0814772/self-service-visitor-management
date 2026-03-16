@@ -16,6 +16,8 @@ const VisitorBadge = () => {
   const [visitor, setVisitor] = useState<Visitor | null>(null);
   const [loading, setLoading] = useState(true);
 
+  const [visitUrl, setVisitUrl] = useState<string | null>(null);
+
   useEffect(() => {
     const run = async () => {
       if (!supabase || !token) {
@@ -38,6 +40,11 @@ const VisitorBadge = () => {
         .eq("id", id)
         .maybeSingle();
       setVisitor((data as Visitor) ?? null);
+      const baseUrl =
+        typeof window !== "undefined"
+          ? window.location.origin
+          : "https://example.com";
+      setVisitUrl(`${baseUrl}/visit/${id}`);
       setLoading(false);
     };
     void run();
@@ -131,15 +138,11 @@ const VisitorBadge = () => {
           </div>
 
           <div className="mt-4 flex justify-center">
-            {token && (
+            {visitUrl && (
               // QR code for this visit, same target as email
               <img
                 src={`https://api.qrserver.com/v1/create-qr-code/?size=180x180&data=${encodeURIComponent(
-                  `${
-                    typeof window !== "undefined"
-                      ? window.location.origin
-                      : "https://example.com"
-                  }/visit/${token}`,
+                  visitUrl,
                 )}`}
                 alt="Visitor QR code"
                 className="h-40 w-40 rounded-md border border-border bg-background p-1"
