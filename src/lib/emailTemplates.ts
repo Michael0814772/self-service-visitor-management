@@ -91,3 +91,13 @@ You can print your visitor badge here:<br>
 Please bring your QR code for entry verification.
 `;
 }
+
+export function getRejectionMessage(rejectionReason: string): string {
+  return `Your visit request was not approved.<br><br>
+
+Reason:<br>
+${rejectionReason}<br><br>
+
+Contact the office if needed.
+`;
+}
