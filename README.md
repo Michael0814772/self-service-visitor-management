@@ -126,6 +126,7 @@ The app uses **Supabase as the backend**. All visitor and admin data comes from 
 | `purpose`   | `text`       | No       | —                 | Purpose of visit                |
 | `host_name` | `text`       | No       | —                 | Name of host/contact           |
 | `appointment_time` | `timestamptz` | Yes | —              | Requested appointment date/time |
+| `duration_minutes` | `integer` | Yes | —                 | Approved visit duration in minutes |
 | `status`    | `text`       | No       | `'PENDING'`       | `PENDING` \| `APPROVED` \| `REJECTED` \| `CHECKED_IN` \| `CHECKED_OUT` |
 | `checked_in_at`  | `timestamptz`| Yes      | —                 | Check-in time (set when status → CHECKED_IN) |
 | `checked_out_at` | `timestamptz`| Yes      | —                 | Check-out time (set when status → CHECKED_OUT) |
@@ -144,6 +145,7 @@ create table public.visitors (
   purpose    text not null,
   host_name  text not null,
   appointment_time  timestamptz,
+  duration_minutes integer,
   status     text not null default 'PENDING' check (status in ('PENDING', 'APPROVED', 'REJECTED', 'CHECKED_IN', 'CHECKED_OUT')),
   checked_in_at  timestamptz,
   checked_out_at timestamptz,
