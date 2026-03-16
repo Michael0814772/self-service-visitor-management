@@ -7,6 +7,7 @@ import { LogOut, Users, Clock, CheckCircle, XCircle } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { format } from "date-fns";
 import { supabase } from "@/lib/supabase";
+import { getApprovalMessage } from "@/lib/emailTemplates";
 import emailjs from "@emailjs/browser";
 
 type VisitorStatus =
@@ -24,6 +25,7 @@ interface Visitor {
   purpose: string;
   host_name: string;
   appointment_time: string | null;
+   duration_minutes: number | null;
   status: VisitorStatus;
   created_at: string;
   checked_in_at: string | null;
@@ -40,6 +42,12 @@ const AdminDashboard = () => {
   const [activeTab, setActiveTab] = useState<FilterTab>("ALL");
   const [selectedVisitor, setSelectedVisitor] = useState<Visitor | null>(null);
   const [adminName, setAdminName] = useState<string>("");
+  const [approveDurationMinutes, setApproveDurationMinutes] =
+    useState<number>(30);
+  const [showApproveDuration, setShowApproveDuration] = useState(false);
+  const [updatingVisitorId, setUpdatingVisitorId] = useState<string | null>(
+    null,
+  );
 
   useEffect(() => {
     const checkAuth = async () => {
@@ -98,8 +106,20 @@ const AdminDashboard = () => {
     checkAuth();
   }, [navigate]);
 
-  const updateStatus = async (id: string, status: VisitorStatus) => {
+  useEffect(() => {
+    // Reset approve flow when changing selection or status
+    setShowApproveDuration(false);
+    setApproveDurationMinutes(30);
+  }, [selectedVisitor?.id, selectedVisitor?.status]);
+
+  const updateStatus = async (
+    id: string,
+    status: VisitorStatus,
+    durationMinutes?: number,
+  ) => {
     if (!supabase) return;
+    if (updatingVisitorId) return;
+    setUpdatingVisitorId(id);
     const visitor = visitors.find((v) => v.id === id);
     const now = new Date().toISOString();
     const { error } = await supabase
@@ -108,29 +128,47 @@ const AdminDashboard = () => {
         status,
         ...(status === "CHECKED_IN" ? { checked_in_at: now } : {}),
         ...(status === "CHECKED_OUT" ? { checked_out_at: now } : {}),
+        ...(status === "APPROVED" && typeof durationMinutes === "number"
+          ? { duration_minutes: durationMinutes }
+          : {}),
       })
       .eq("id", id);
     if (error) {
       toast.error(error.message || "Update failed");
+      setUpdatingVisitorId(null);
       return;
     }
     const recipientEmail = visitor?.email?.trim();
     if (status === "APPROVED" && recipientEmail) {
       const serviceId = import.meta.env.VITE_EMAILJS_SERVICE_ID;
-      const templateId = import.meta.env.VITE_EMAILJS_APPROVAL_TEMPLATE_ID;
+      const templateId = import.meta.env.VITE_EMAILJS_ADMIN_NOTIFY_TEMPLATE_ID;
       const publicKey = import.meta.env.VITE_EMAILJS_PUBLIC_KEY;
       if (serviceId && templateId && publicKey) {
         try {
-          const qrCodeUrl = `https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(visitor!.id)}`;
+          const baseUrl =
+            typeof window !== "undefined"
+              ? window.location.origin
+              : "https://example.com";
+          const qrTarget = `${baseUrl}/visit/${visitor!.id}`;
+          const qrCodeUrl = `https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(
+            qrTarget,
+          )}`;
+          const message = getApprovalMessage({
+            purpose: visitor!.purpose,
+            host_name: visitor!.host_name,
+            appointment_time: visitor!.appointment_time,
+            duration_minutes:
+              typeof durationMinutes === "number"
+                ? durationMinutes
+                : visitor!.duration_minutes ?? undefined,
+            qr_code_url: qrCodeUrl,
+          });
           emailjs.init(publicKey);
           await emailjs.send(serviceId, templateId, {
             email: recipientEmail,
             to_email: recipientEmail,
             name: visitor!.full_name,
-            purpose: visitor!.purpose,
-            host_name: visitor!.host_name,
-            appointment_time: visitor!.appointment_time,
-            qr_code_url: qrCodeUrl,
+            message,
           });
         } catch {
           // Email is best-effort
@@ -145,6 +183,9 @@ const AdminDashboard = () => {
               status,
               ...(status === "CHECKED_IN" ? { checked_in_at: now } : {}),
               ...(status === "CHECKED_OUT" ? { checked_out_at: now } : {}),
+              ...(status === "APPROVED" && typeof durationMinutes === "number"
+                ? { duration_minutes: durationMinutes }
+                : {}),
             }
           : v,
       ),
@@ -157,11 +198,15 @@ const AdminDashboard = () => {
               status,
               ...(status === "CHECKED_IN" ? { checked_in_at: now } : {}),
               ...(status === "CHECKED_OUT" ? { checked_out_at: now } : {}),
+              ...(status === "APPROVED" && typeof durationMinutes === "number"
+                ? { duration_minutes: durationMinutes }
+                : {}),
             }
           : null,
       );
     }
     toast.success(`Visitor ${status.toLowerCase()}`);
+    setUpdatingVisitorId(null);
   };
 
   const handleLogout = async () => {
@@ -293,9 +338,6 @@ const AdminDashboard = () => {
                     <th className="hidden px-4 py-3 text-left font-medium text-muted-foreground lg:table-cell">
                       Check-out
                     </th>
-                    <th className="px-4 py-3 text-right font-medium text-muted-foreground">
-                      Actions
-                    </th>
                   </tr>
                 </thead>
                 <tbody>
@@ -341,58 +383,6 @@ const AdminDashboard = () => {
                               )
                             : "—"}
                         </td>
-                        <td
-                          className="px-4 py-3 text-right"
-                          onClick={(e) => e.stopPropagation()}
-                        >
-                          {visitor.status === "PENDING" && (
-                            <div className="flex items-center justify-end gap-2">
-                              <Button
-                                size="sm"
-                                onClick={() =>
-                                  updateStatus(visitor.id, "APPROVED")
-                                }
-                                className="h-8 gap-1 bg-status-approved-fg text-primary-foreground hover:bg-status-approved-fg/90"
-                              >
-                                <CheckCircle className="h-3.5 w-3.5" /> Approve
-                              </Button>
-                              <Button
-                                size="sm"
-                                variant="outline"
-                                onClick={() =>
-                                  updateStatus(visitor.id, "REJECTED")
-                                }
-                                className="h-8 gap-1 border-status-rejected-border text-status-rejected-fg hover:bg-status-rejected-bg"
-                              >
-                                <XCircle className="h-3.5 w-3.5" /> Reject
-                              </Button>
-                            </div>
-                          )}
-                          {visitor.status === "APPROVED" && (
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              onClick={() =>
-                                updateStatus(visitor.id, "CHECKED_IN")
-                              }
-                              className="h-8"
-                            >
-                              Check in
-                            </Button>
-                          )}
-                          {visitor.status === "CHECKED_IN" && (
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              onClick={() =>
-                                updateStatus(visitor.id, "CHECKED_OUT")
-                              }
-                              className="h-8"
-                            >
-                              Check out
-                            </Button>
-                          )}
-                        </td>
                       </motion.tr>
                     ))}
                   </AnimatePresence>
@@ -435,115 +425,173 @@ const AdminDashboard = () => {
                 </button>
               </div>
               <div className="space-y-5 p-6">
-                <div>
-                  <p className="text-xs text-muted-foreground">Name</p>
-                  <p className="text-sm font-medium text-foreground">
-                    {selectedVisitor.full_name}
-                  </p>
-                </div>
-                {selectedVisitor.email && (
-                  <div>
-                    <p className="text-xs text-muted-foreground">Email</p>
-                    <p className="text-sm text-foreground">
-                      {selectedVisitor.email}
-                    </p>
-                  </div>
-                )}
-                {selectedVisitor.phone && (
-                  <div>
-                    <p className="text-xs text-muted-foreground">Phone</p>
-                    <p className="text-sm text-foreground">
-                      {selectedVisitor.phone}
-                    </p>
-                  </div>
-                )}
-                <div>
-                  <p className="text-xs text-muted-foreground">Host</p>
-                  <p className="text-sm text-foreground">
-                    {selectedVisitor.host_name}
-                  </p>
-                </div>
-                <div>
-                  <p className="text-xs text-muted-foreground">Purpose</p>
-                  <p className="text-sm text-foreground">
-                    {selectedVisitor.purpose}
-                  </p>
-                </div>
-                <div>
-                  <p className="text-xs text-muted-foreground">
-                    Appointment time
-                  </p>
-                  <p className="text-sm tabular-nums text-foreground">
-                    {selectedVisitor.appointment_time
-                      ? format(
-                          new Date(selectedVisitor.appointment_time),
-                          "MMM d, yyyy 'at' HH:mm",
-                        )
-                      : "—"}
-                  </p>
-                </div>
-                <div>
-                  <p className="text-xs text-muted-foreground">Status</p>
-                  <div className="mt-1">
-                    <StatusBadge status={selectedVisitor.status} />
-                  </div>
-                </div>
-                <div>
-                  <p className="text-xs text-muted-foreground">Requested at</p>
-                  <p className="text-sm tabular-nums text-foreground">
-                    {format(
-                      new Date(selectedVisitor.created_at),
-                      "MMM d, yyyy 'at' HH:mm",
+                    {selectedVisitor.status === "PENDING" && showApproveDuration ? (
+                  <>
+                    <div>
+                      <p className="text-xs text-muted-foreground">
+                        Duration
+                      </p>
+                      <select
+                        className="mt-1 flex h-9 w-full rounded-md border border-input bg-background px-2 text-xs ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+                        value={approveDurationMinutes}
+                        onChange={(e) =>
+                          setApproveDurationMinutes(Number(e.target.value))
+                        }
+                      >
+                        <option value={30}>30 minutes</option>
+                        <option value={60}>1 hour</option>
+                        <option value={120}>2 hours</option>
+                        <option value={180}>3 hours</option>
+                        <option value={240}>4 hours</option>
+                      </select>
+                    </div>
+                    <div className="flex gap-2 pt-2">
+                      <Button
+                        disabled={updatingVisitorId === selectedVisitor.id}
+                        onClick={() =>
+                          updateStatus(
+                            selectedVisitor.id,
+                            "APPROVED",
+                            approveDurationMinutes,
+                          )
+                        }
+                        className="h-10 flex-1 gap-1 bg-status-approved-fg text-primary-foreground hover:bg-status-approved-fg/90"
+                      >
+                        <CheckCircle className="h-4 w-4" />{" "}
+                        {updatingVisitorId === selectedVisitor.id
+                          ? "Confirming..."
+                          : "Confirm"}
+                      </Button>
+                      <Button
+                        variant="outline"
+                        disabled={updatingVisitorId === selectedVisitor.id}
+                        onClick={() =>
+                          updateStatus(selectedVisitor.id, "REJECTED")
+                        }
+                        className="h-10 flex-1 gap-1 border-status-rejected-border text-status-rejected-fg hover:bg-status-rejected-bg"
+                      >
+                        <XCircle className="h-4 w-4" /> Cancel
+                      </Button>
+                    </div>
+                  </>
+                ) : (
+                  <>
+                    <div>
+                      <p className="text-xs text-muted-foreground">Name</p>
+                      <p className="text-sm font-medium text-foreground">
+                        {selectedVisitor.full_name}
+                      </p>
+                    </div>
+                    {selectedVisitor.email && (
+                      <div>
+                        <p className="text-xs text-muted-foreground">Email</p>
+                        <p className="text-sm text-foreground">
+                          {selectedVisitor.email}
+                        </p>
+                      </div>
                     )}
-                  </p>
-                </div>
-                <div>
-                  <p className="text-xs text-muted-foreground">Check-in at</p>
-                  <p className="text-sm tabular-nums text-foreground">
-                    {selectedVisitor.checked_in_at
-                      ? format(
-                          new Date(selectedVisitor.checked_in_at),
+                    {selectedVisitor.phone && (
+                      <div>
+                        <p className="text-xs text-muted-foreground">Phone</p>
+                        <p className="text-sm text-foreground">
+                          {selectedVisitor.phone}
+                        </p>
+                      </div>
+                    )}
+                    <div>
+                      <p className="text-xs text-muted-foreground">Host</p>
+                      <p className="text-sm text-foreground">
+                        {selectedVisitor.host_name}
+                      </p>
+                    </div>
+                    <div>
+                      <p className="text-xs text-muted-foreground">Purpose</p>
+                      <p className="text-sm text-foreground">
+                        {selectedVisitor.purpose}
+                      </p>
+                    </div>
+                    <div>
+                      <p className="text-xs text-muted-foreground">
+                        Appointment time
+                      </p>
+                      <p className="text-sm tabular-nums text-foreground">
+                        {selectedVisitor.appointment_time
+                          ? format(
+                              new Date(selectedVisitor.appointment_time),
+                              "MMM d, yyyy 'at' HH:mm",
+                            )
+                          : "—"}
+                      </p>
+                    </div>
+                    <div>
+                      <p className="text-xs text-muted-foreground">Status</p>
+                      <div className="mt-1">
+                        <StatusBadge status={selectedVisitor.status} />
+                      </div>
+                    </div>
+                    <div>
+                      <p className="text-xs text-muted-foreground">
+                        Requested at
+                      </p>
+                      <p className="text-sm tabular-nums text-foreground">
+                        {format(
+                          new Date(selectedVisitor.created_at),
                           "MMM d, yyyy 'at' HH:mm",
-                        )
-                      : "—"}
-                  </p>
-                </div>
-                <div>
-                  <p className="text-xs text-muted-foreground">Check-out at</p>
-                  <p className="text-sm tabular-nums text-foreground">
-                    {selectedVisitor.checked_out_at
-                      ? format(
-                          new Date(selectedVisitor.checked_out_at),
-                          "MMM d, yyyy 'at' HH:mm",
-                        )
-                      : "—"}
-                  </p>
-                </div>
+                        )}
+                      </p>
+                    </div>
+                    <div>
+                      <p className="text-xs text-muted-foreground">
+                        Check-in at
+                      </p>
+                      <p className="text-sm tabular-nums text-foreground">
+                        {selectedVisitor.checked_in_at
+                          ? format(
+                              new Date(selectedVisitor.checked_in_at),
+                              "MMM d, yyyy 'at' HH:mm",
+                            )
+                          : "—"}
+                      </p>
+                    </div>
+                    <div>
+                      <p className="text-xs text-muted-foreground">
+                        Check-out at
+                      </p>
+                      <p className="text-sm tabular-nums text-foreground">
+                        {selectedVisitor.checked_out_at
+                          ? format(
+                              new Date(selectedVisitor.checked_out_at),
+                              "MMM d, yyyy 'at' HH:mm",
+                            )
+                          : "—"}
+                      </p>
+                    </div>
 
-                {selectedVisitor.status === "PENDING" && (
+                    {selectedVisitor.status === "PENDING" && (
+                      <div className="flex gap-2 pt-2">
+                        <Button
+                          disabled={updatingVisitorId === selectedVisitor.id}
+                          onClick={() => setShowApproveDuration(true)}
+                          className="h-10 flex-1 gap-1 bg-status-approved-fg text-primary-foreground hover:bg-status-approved-fg/90"
+                        >
+                          <CheckCircle className="h-4 w-4" /> Approve
+                        </Button>
+                        <Button
+                          variant="outline"
+                          disabled={updatingVisitorId === selectedVisitor.id}
+                          onClick={() =>
+                            updateStatus(selectedVisitor.id, "REJECTED")
+                          }
+                          className="h-10 flex-1 gap-1 border-status-rejected-border text-status-rejected-fg hover:bg-status-rejected-bg"
+                        >
+                          <XCircle className="h-4 w-4" /> Reject
+                        </Button>
+                      </div>
+                    )}
+                    {selectedVisitor.status === "APPROVED" && (
                   <div className="flex gap-2 pt-2">
                     <Button
-                      onClick={() =>
-                        updateStatus(selectedVisitor.id, "APPROVED")
-                      }
-                      className="h-10 flex-1 gap-1 bg-status-approved-fg text-primary-foreground hover:bg-status-approved-fg/90"
-                    >
-                      <CheckCircle className="h-4 w-4" /> Approve
-                    </Button>
-                    <Button
-                      variant="outline"
-                      onClick={() =>
-                        updateStatus(selectedVisitor.id, "REJECTED")
-                      }
-                      className="h-10 flex-1 gap-1 border-status-rejected-border text-status-rejected-fg hover:bg-status-rejected-bg"
-                    >
-                      <XCircle className="h-4 w-4" /> Reject
-                    </Button>
-                  </div>
-                )}
-                {selectedVisitor.status === "APPROVED" && (
-                  <div className="flex gap-2 pt-2">
-                    <Button
+                      disabled={updatingVisitorId === selectedVisitor.id}
                       onClick={() =>
                         updateStatus(selectedVisitor.id, "CHECKED_IN")
                       }
@@ -553,10 +601,11 @@ const AdminDashboard = () => {
                     </Button>
                   </div>
                 )}
-                {selectedVisitor.status === "CHECKED_IN" && (
+                    {selectedVisitor.status === "CHECKED_IN" && (
                   <div className="flex gap-2 pt-2">
                     <Button
                       variant="outline"
+                      disabled={updatingVisitorId === selectedVisitor.id}
                       onClick={() =>
                         updateStatus(selectedVisitor.id, "CHECKED_OUT")
                       }
@@ -565,6 +614,8 @@ const AdminDashboard = () => {
                       Check out
                     </Button>
                   </div>
+                )}
+                  </>
                 )}
               </div>
             </motion.aside>

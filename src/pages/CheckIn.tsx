@@ -7,6 +7,7 @@ import { toast } from "sonner";
 import { CheckCircle, ArrowLeft } from "lucide-react";
 import { useNavigate } from "react-router";
 import { supabase } from "@/lib/supabase";
+import { getCreationMessage } from "@/lib/emailTemplates";
 import emailjs from "@emailjs/browser";
 
 type Host = { id: string; name: string | null; email: string };
@@ -96,11 +97,8 @@ const CheckIn = () => {
     if (hostEmail && serviceId && publicKey && adminNotifyTemplateId) {
       try {
         const adminLink = `${typeof window !== "undefined" ? window.location.origin : ""}/admin/login`;
-        await emailjs.send(serviceId, adminNotifyTemplateId, {
-          email: hostEmail,
-          to_email: hostEmail,
-          Admin: form.host_name.trim(),
-          name: form.full_name.trim(),
+        const message = getCreationMessage({
+          visitor_name: form.full_name.trim(),
           purpose: form.purpose.trim(),
           host_name: form.host_name.trim(),
           visit_date: new Date().toLocaleDateString("en-US", {
@@ -110,6 +108,12 @@ const CheckIn = () => {
             day: "numeric",
           }),
           admin_link: adminLink,
+        });
+        await emailjs.send(serviceId, adminNotifyTemplateId, {
+          email: hostEmail,
+          to_email: hostEmail,
+          name: form.host_name.trim(),
+          message,
         });
       } catch {
         // Email is best-effort; visitor was already created
