@@ -6,6 +6,7 @@ import { toast } from "sonner";
 import { useNavigate } from "react-router";
 import { ArrowLeft, UserPlus } from "lucide-react";
 import { supabase } from "@/lib/supabase";
+import { logAudit } from "@/lib/audit";
 
 const AdminCreate = () => {
   const navigate = useNavigate();
@@ -77,6 +78,14 @@ const AdminCreate = () => {
       toast.error(insertError.message || "Could not create admin");
       return;
     }
+    void logAudit({
+      user_id: data.user.id,
+      action: "ADMIN_CREATE",
+      details: {
+        email: data.user.email ?? email.trim().toLowerCase(),
+        name: name.trim() || null,
+      },
+    });
     setCreated(true);
     toast.success("Admin created. You can sign in now.");
     setTimeout(() => navigate("/admin/login"), 1500);

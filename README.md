@@ -137,6 +137,20 @@ The app uses **Supabase as the backend**. All visitor and admin data comes from 
 ### SQL to create the table
 
 ```sql
+create table public.audit_log (
+  log_id     uuid primary key default gen_random_uuid(),
+  user_id    text,
+  action     text not null,
+  timestamp  timestamptz not null default now(),
+  details    text
+);
+
+alter table public.audit_log enable row level security;
+create policy "Allow anon and auth insert audit_log"
+  on public.audit_log for insert
+  to anon, authenticated
+  with check (true);
+
 create table public.visitors (
   id         uuid primary key default gen_random_uuid(),
   full_name  text not null,

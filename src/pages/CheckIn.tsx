@@ -8,6 +8,7 @@ import { CheckCircle, ArrowLeft } from "lucide-react";
 import { useNavigate } from "react-router";
 import { supabase } from "@/lib/supabase";
 import { getCreationMessage } from "@/lib/emailTemplates";
+import { logAudit } from "@/lib/audit";
 import emailjs from "@emailjs/browser";
 
 type Host = { id: string; name: string | null; email: string };
@@ -90,6 +91,15 @@ const CheckIn = () => {
       toast.error(error.message || "Request failed");
       return;
     }
+    void logAudit({
+      user_id: null,
+      action: "VISITOR_CHECKIN_REQUEST",
+      details: {
+        full_name: form.full_name.trim(),
+        purpose: form.purpose.trim(),
+        host_name: form.host_name.trim(),
+      },
+    });
     const hostEmail = form.host_email?.trim();
     const serviceId = import.meta.env.VITE_EMAILJS_SERVICE_ID;
     const publicKey = import.meta.env.VITE_EMAILJS_PUBLIC_KEY;
