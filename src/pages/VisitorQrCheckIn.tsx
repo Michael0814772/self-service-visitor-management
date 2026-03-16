@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { useParams } from "react-router";
 import { CheckCircle, XCircle, Info } from "lucide-react";
 import { supabase } from "@/lib/supabase";
+import { logAudit } from "@/lib/audit";
 
 type State = "loading" | "checked_in" | "checked_out" | "error";
 
@@ -41,6 +42,11 @@ const VisitorQrCheckIn = () => {
             setReason("We could not update your visit status.");
             setState("error");
           } else {
+            void logAudit({
+              user_id: id,
+              action: "QR_CHECKIN",
+              details: { from: "APPROVED", to: "CHECKED_IN" },
+            });
             setState("checked_in");
           }
           return;
@@ -58,6 +64,11 @@ const VisitorQrCheckIn = () => {
             setReason("We could not update your visit status.");
             setState("error");
           } else {
+            void logAudit({
+              user_id: id,
+              action: "QR_CHECKOUT",
+              details: { from: "CHECKED_IN", to: "CHECKED_OUT" },
+            });
             setState("checked_out");
           }
           return;

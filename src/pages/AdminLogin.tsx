@@ -6,6 +6,7 @@ import { toast } from "sonner";
 import { useNavigate } from "react-router";
 import { ArrowLeft } from "lucide-react";
 import { supabase } from "@/lib/supabase";
+import { logAudit } from "@/lib/audit";
 
 const AdminLogin = () => {
   const navigate = useNavigate();
@@ -27,10 +28,20 @@ const AdminLogin = () => {
     setLoading(false);
     if (error) {
       toast.error(error.message || "Invalid credentials");
+      void logAudit({
+        user_id: null,
+        action: "ADMIN_LOGIN",
+        details: { email: email.trim().toLowerCase(), result: "error" },
+      });
       return;
     }
     if (!data.user) {
       toast.error("Invalid credentials");
+      void logAudit({
+        user_id: null,
+        action: "ADMIN_LOGIN",
+        details: { email: email.trim().toLowerCase(), result: "no_user" },
+      });
       return;
     }
 
@@ -44,6 +55,11 @@ const AdminLogin = () => {
       if (!whitelistRow) {
         await supabase.auth.signOut();
         toast.error("Not authorized as admin.");
+        void logAudit({
+          user_id: data.user.id,
+          action: "ADMIN_LOGIN",
+          details: { email: loginEmail, result: "not_whitelisted" },
+        });
         return;
       }
     }
@@ -56,13 +72,28 @@ const AdminLogin = () => {
     if (adminError) {
       await supabase.auth.signOut();
       toast.error(adminError.message || "Could not verify admin.");
+      void logAudit({
+        user_id: data.user.id,
+        action: "ADMIN_LOGIN",
+        details: { email: loginEmail, result: "admin_error" },
+      });
       return;
     }
     if (!adminRow) {
       await supabase.auth.signOut();
       toast.error("Not an admin. Create an admin account first.");
+      void logAudit({
+        user_id: data.user.id,
+        action: "ADMIN_LOGIN",
+        details: { email: loginEmail, result: "no_admin_row" },
+      });
       return;
     }
+    void logAudit({
+      user_id: data.user.id,
+      action: "ADMIN_LOGIN",
+      details: { email: loginEmail, result: "success" },
+    });
     toast.success("Signed in");
     navigate("/admin");
   };
