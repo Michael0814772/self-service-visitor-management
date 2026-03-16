@@ -450,12 +450,10 @@ const AdminDashboard = () => {
                 </button>
               </div>
               <div className="space-y-5 p-6">
-                    {selectedVisitor.status === "PENDING" && showApproveDuration ? (
+                {selectedVisitor.status === "PENDING" && showApproveDuration ? (
                   <>
                     <div>
-                      <p className="text-xs text-muted-foreground">
-                        Duration
-                      </p>
+                      <p className="text-xs text-muted-foreground">Duration</p>
                       <select
                         className="mt-1 flex h-9 w-full rounded-md border border-input bg-background px-2 text-xs ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
                         value={approveDurationMinutes}
@@ -491,6 +489,47 @@ const AdminDashboard = () => {
                         onClick={() => {
                           setShowApproveDuration(false);
                           setApproveDurationMinutes(30);
+                        }}
+                        className="h-10 flex-1 gap-1 border-border text-muted-foreground hover:bg-accent"
+                      >
+                        Cancel
+                      </Button>
+                    </div>
+                  </>
+                ) : selectedVisitor.status === "PENDING" && showRejectReason ? (
+                  <>
+                    <div className="mt-2">
+                      <p className="text-xs text-muted-foreground">
+                        Rejection reason *
+                      </p>
+                      <textarea
+                        className="mt-1 h-20 w-full rounded-md border border-input bg-background px-2 py-1 text-xs ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+                        value={rejectReason}
+                        onChange={(e) => setRejectReason(e.target.value)}
+                        placeholder="Briefly explain why this request is rejected"
+                      />
+                    </div>
+                    <div className="flex gap-2 pt-2">
+                      <Button
+                        disabled={
+                          updatingVisitorId === selectedVisitor.id ||
+                          !rejectReason.trim()
+                        }
+                        onClick={() =>
+                          updateStatus(selectedVisitor.id, "REJECTED", {
+                            notes: rejectReason,
+                          })
+                        }
+                        className="h-10 flex-1 gap-1 bg-status-rejected-fg text-primary-foreground hover:bg-status-rejected-fg/90"
+                      >
+                        <XCircle className="h-4 w-4" /> Confirm reject
+                      </Button>
+                      <Button
+                        variant="outline"
+                        disabled={updatingVisitorId === selectedVisitor.id}
+                        onClick={() => {
+                          setShowRejectReason(false);
+                          setRejectReason("");
                         }}
                         className="h-10 flex-1 gap-1 border-border text-muted-foreground hover:bg-accent"
                       >
@@ -591,50 +630,7 @@ const AdminDashboard = () => {
                       </p>
                     </div>
 
-                {selectedVisitor.status === "PENDING" && showRejectReason && (
-                  <>
-                    <div className="mt-2">
-                      <p className="text-xs text-muted-foreground">
-                        Rejection reason *
-                      </p>
-                      <textarea
-                        className="mt-1 h-20 w-full rounded-md border border-input bg-background px-2 py-1 text-xs ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
-                        value={rejectReason}
-                        onChange={(e) => setRejectReason(e.target.value)}
-                        placeholder="Briefly explain why this request is rejected"
-                      />
-                    </div>
-                    <div className="flex gap-2 pt-2">
-                      <Button
-                        disabled={
-                          updatingVisitorId === selectedVisitor.id ||
-                          !rejectReason.trim()
-                        }
-                        onClick={() =>
-                          updateStatus(selectedVisitor.id, "REJECTED", {
-                            notes: rejectReason,
-                          })
-                        }
-                        className="h-10 flex-1 gap-1 bg-status-rejected-fg text-primary-foreground hover:bg-status-rejected-fg/90"
-                      >
-                        <XCircle className="h-4 w-4" /> Confirm reject
-                      </Button>
-                      <Button
-                        variant="outline"
-                        disabled={updatingVisitorId === selectedVisitor.id}
-                        onClick={() => {
-                          setShowRejectReason(false);
-                          setRejectReason("");
-                        }}
-                        className="h-10 flex-1 gap-1 border-border text-muted-foreground hover:bg-accent"
-                      >
-                        Cancel
-                      </Button>
-                    </div>
-                  </>
-                )}
-
-                {selectedVisitor.status === "PENDING" && !showRejectReason && (
+                    {selectedVisitor.status === "PENDING" && (
                       <div className="flex gap-2 pt-2">
                         <Button
                           disabled={updatingVisitorId === selectedVisitor.id}
@@ -646,7 +642,7 @@ const AdminDashboard = () => {
                         <Button
                           variant="outline"
                           disabled={updatingVisitorId === selectedVisitor.id}
-                        onClick={() => setShowRejectReason(true)}
+                          onClick={() => setShowRejectReason(true)}
                           className="h-10 flex-1 gap-1 border-status-rejected-border text-status-rejected-fg hover:bg-status-rejected-bg"
                         >
                           <XCircle className="h-4 w-4" /> Reject
@@ -654,32 +650,32 @@ const AdminDashboard = () => {
                       </div>
                     )}
                     {selectedVisitor.status === "APPROVED" && (
-                  <div className="flex gap-2 pt-2">
-                    <Button
-                      disabled={updatingVisitorId === selectedVisitor.id}
-                      onClick={() =>
-                        updateStatus(selectedVisitor.id, "CHECKED_IN")
-                      }
-                      className="h-10 w-full gap-1"
-                    >
-                      <CheckCircle className="h-4 w-4" /> Check in
-                    </Button>
-                  </div>
-                )}
+                      <div className="flex gap-2 pt-2">
+                        <Button
+                          disabled={updatingVisitorId === selectedVisitor.id}
+                          onClick={() =>
+                            updateStatus(selectedVisitor.id, "CHECKED_IN")
+                          }
+                          className="h-10 w-full gap-1"
+                        >
+                          <CheckCircle className="h-4 w-4" /> Check in
+                        </Button>
+                      </div>
+                    )}
                     {selectedVisitor.status === "CHECKED_IN" && (
-                  <div className="flex gap-2 pt-2">
-                    <Button
-                      variant="outline"
-                      disabled={updatingVisitorId === selectedVisitor.id}
-                      onClick={() =>
-                        updateStatus(selectedVisitor.id, "CHECKED_OUT")
-                      }
-                      className="h-10 w-full gap-1"
-                    >
-                      Check out
-                    </Button>
-                  </div>
-                )}
+                      <div className="flex gap-2 pt-2">
+                        <Button
+                          variant="outline"
+                          disabled={updatingVisitorId === selectedVisitor.id}
+                          onClick={() =>
+                            updateStatus(selectedVisitor.id, "CHECKED_OUT")
+                          }
+                          className="h-10 w-full gap-1"
+                        >
+                          Check out
+                        </Button>
+                      </div>
+                    )}
                   </>
                 )}
               </div>
