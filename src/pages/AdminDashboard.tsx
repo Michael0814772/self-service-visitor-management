@@ -7,7 +7,7 @@ import { LogOut, Users, Clock, CheckCircle, XCircle } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { format } from "date-fns";
 import { supabase } from "@/lib/supabase";
-import { getApprovalMessage } from "@/lib/emailTemplates";
+import { getApprovalMessage, getRejectionMessage } from "@/lib/emailTemplates";
 import emailjs from "@emailjs/browser";
 
 type VisitorStatus =
@@ -48,6 +48,8 @@ const AdminDashboard = () => {
   const [updatingVisitorId, setUpdatingVisitorId] = useState<string | null>(
     null,
   );
+  const [showRejectReason, setShowRejectReason] = useState(false);
+  const [rejectReason, setRejectReason] = useState("");
 
   useEffect(() => {
     const checkAuth = async () => {
@@ -110,18 +112,22 @@ const AdminDashboard = () => {
     // Reset approve flow when changing selection or status
     setShowApproveDuration(false);
     setApproveDurationMinutes(30);
+    setShowRejectReason(false);
+    setRejectReason("");
   }, [selectedVisitor?.id, selectedVisitor?.status]);
 
   const updateStatus = async (
     id: string,
     status: VisitorStatus,
-    durationMinutes?: number,
+    options?: { durationMinutes?: number; notes?: string },
   ) => {
     if (!supabase) return;
     if (updatingVisitorId) return;
     setUpdatingVisitorId(id);
     const visitor = visitors.find((v) => v.id === id);
     const now = new Date().toISOString();
+    const durationMinutes = options?.durationMinutes;
+    const notes = options?.notes?.trim();
     const { error } = await supabase
       .from("visitors")
       .update({
@@ -131,6 +137,9 @@ const AdminDashboard = () => {
         ...(status === "APPROVED" && typeof durationMinutes === "number"
           ? { duration_minutes: durationMinutes }
           : {}),
+        ...(status === "REJECTED" && notes
+          ? { notes }
+          : {}),
       })
       .eq("id", id);
     if (error) {
@@ -139,16 +148,19 @@ const AdminDashboard = () => {
       return;
     }
     const recipientEmail = visitor?.email?.trim();
-    if (status === "APPROVED" && recipientEmail) {
-      const serviceId = import.meta.env.VITE_EMAILJS_SERVICE_ID;
-      const templateId = import.meta.env.VITE_EMAILJS_ADMIN_NOTIFY_TEMPLATE_ID;
-      const publicKey = import.meta.env.VITE_EMAILJS_PUBLIC_KEY;
-      if (serviceId && templateId && publicKey) {
-        try {
-          const baseUrl =
-            typeof window !== "undefined"
-              ? window.location.origin
-              : "https://example.com";
+    const serviceId = import.meta.env.VITE_EMAILJS_SERVICE_ID;
+    const templateId = import.meta.env.VITE_EMAILJS_ADMIN_NOTIFY_TEMPLATE_ID;
+    const publicKey = import.meta.env.VITE_EMAILJS_PUBLIC_KEY;
+    if (recipientEmail && serviceId && templateId && publicKey) {
+      try {
+        const baseUrl =
+          typeof window !== "undefined"
+            ? window.location.origin
+            : "https://example.com";
+
+        let message: string | null = null;
+
+        if (status === "APPROVED") {
           const token =
             typeof window !== "undefined"
               ? window.btoa(visitor!.id)
@@ -158,7 +170,7 @@ const AdminDashboard = () => {
           const qrCodeUrl = `https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(
             qrTarget,
           )}`;
-          const message = getApprovalMessage({
+          message = getApprovalMessage({
             purpose: visitor!.purpose,
             host_name: visitor!.host_name,
             appointment_time: visitor!.appointment_time,
@@ -169,6 +181,11 @@ const AdminDashboard = () => {
             qr_code_url: qrCodeUrl,
             badge_url: badgeUrl,
           });
+        } else if (status === "REJECTED" && notes) {
+          message = getRejectionMessage(notes);
+        }
+
+        if (message) {
           emailjs.init(publicKey);
           await emailjs.send(serviceId, templateId, {
             email: recipientEmail,
@@ -176,9 +193,9 @@ const AdminDashboard = () => {
             name: visitor!.full_name,
             message,
           });
-        } catch {
-          // Email is best-effort
         }
+      } catch {
+        // Email is best-effort
       }
     }
     setVisitors((prev) =>
@@ -192,6 +209,7 @@ const AdminDashboard = () => {
               ...(status === "APPROVED" && typeof durationMinutes === "number"
                 ? { duration_minutes: durationMinutes }
                 : {}),
+              ...(status === "REJECTED" && notes ? { notes } : {}),
             }
           : v,
       ),
@@ -207,6 +225,7 @@ const AdminDashboard = () => {
               ...(status === "APPROVED" && typeof durationMinutes === "number"
                 ? { duration_minutes: durationMinutes }
                 : {}),
+              ...(status === "REJECTED" && notes ? { notes } : {}),
             }
           : null,
       );
@@ -455,11 +474,9 @@ const AdminDashboard = () => {
                       <Button
                         disabled={updatingVisitorId === selectedVisitor.id}
                         onClick={() =>
-                          updateStatus(
-                            selectedVisitor.id,
-                            "APPROVED",
-                            approveDurationMinutes,
-                          )
+                          updateStatus(selectedVisitor.id, "APPROVED", {
+                            durationMinutes: approveDurationMinutes,
+                          })
                         }
                         className="h-10 flex-1 gap-1 bg-status-approved-fg text-primary-foreground hover:bg-status-approved-fg/90"
                       >
@@ -471,12 +488,13 @@ const AdminDashboard = () => {
                       <Button
                         variant="outline"
                         disabled={updatingVisitorId === selectedVisitor.id}
-                        onClick={() =>
-                          updateStatus(selectedVisitor.id, "REJECTED")
-                        }
-                        className="h-10 flex-1 gap-1 border-status-rejected-border text-status-rejected-fg hover:bg-status-rejected-bg"
+                        onClick={() => {
+                          setShowApproveDuration(false);
+                          setApproveDurationMinutes(30);
+                        }}
+                        className="h-10 flex-1 gap-1 border-border text-muted-foreground hover:bg-accent"
                       >
-                        <XCircle className="h-4 w-4" /> Cancel
+                        Cancel
                       </Button>
                     </div>
                   </>
@@ -573,7 +591,50 @@ const AdminDashboard = () => {
                       </p>
                     </div>
 
-                    {selectedVisitor.status === "PENDING" && (
+                {selectedVisitor.status === "PENDING" && showRejectReason && (
+                  <>
+                    <div className="mt-2">
+                      <p className="text-xs text-muted-foreground">
+                        Rejection reason *
+                      </p>
+                      <textarea
+                        className="mt-1 h-20 w-full rounded-md border border-input bg-background px-2 py-1 text-xs ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+                        value={rejectReason}
+                        onChange={(e) => setRejectReason(e.target.value)}
+                        placeholder="Briefly explain why this request is rejected"
+                      />
+                    </div>
+                    <div className="flex gap-2 pt-2">
+                      <Button
+                        disabled={
+                          updatingVisitorId === selectedVisitor.id ||
+                          !rejectReason.trim()
+                        }
+                        onClick={() =>
+                          updateStatus(selectedVisitor.id, "REJECTED", {
+                            notes: rejectReason,
+                          })
+                        }
+                        className="h-10 flex-1 gap-1 bg-status-rejected-fg text-primary-foreground hover:bg-status-rejected-fg/90"
+                      >
+                        <XCircle className="h-4 w-4" /> Confirm reject
+                      </Button>
+                      <Button
+                        variant="outline"
+                        disabled={updatingVisitorId === selectedVisitor.id}
+                        onClick={() => {
+                          setShowRejectReason(false);
+                          setRejectReason("");
+                        }}
+                        className="h-10 flex-1 gap-1 border-border text-muted-foreground hover:bg-accent"
+                      >
+                        Cancel
+                      </Button>
+                    </div>
+                  </>
+                )}
+
+                {selectedVisitor.status === "PENDING" && !showRejectReason && (
                       <div className="flex gap-2 pt-2">
                         <Button
                           disabled={updatingVisitorId === selectedVisitor.id}
@@ -585,9 +646,7 @@ const AdminDashboard = () => {
                         <Button
                           variant="outline"
                           disabled={updatingVisitorId === selectedVisitor.id}
-                          onClick={() =>
-                            updateStatus(selectedVisitor.id, "REJECTED")
-                          }
+                        onClick={() => setShowRejectReason(true)}
                           className="h-10 flex-1 gap-1 border-status-rejected-border text-status-rejected-fg hover:bg-status-rejected-bg"
                         >
                           <XCircle className="h-4 w-4" /> Reject

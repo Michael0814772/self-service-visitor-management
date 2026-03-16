@@ -1,3 +1,4 @@
+import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { useNavigate } from "react-router";
 import { Users, Shield } from "lucide-react";
@@ -5,6 +6,27 @@ import homepageOverlay from "@/assets/image/homepage-overlay.jpg";
 
 const Index = () => {
   const navigate = useNavigate();
+  const [imageLoaded, setImageLoaded] = useState(false);
+
+  useEffect(() => {
+    const img = new Image();
+    img.src = homepageOverlay;
+    img.onload = () => setImageLoaded(true);
+    img.onerror = () => setImageLoaded(true);
+  }, []);
+
+  if (!imageLoaded) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-background">
+        <div className="flex flex-col items-center gap-3">
+          <div className="h-10 w-10 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+          <p className="text-xs text-muted-foreground">
+            Loading visitor management…
+          </p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div
@@ -29,9 +51,9 @@ const Index = () => {
 
           {/* Right column: Visitor Management content, centered in its 50% */}
           <div className="flex w-full items-center justify-center">
-            <div className="w-full max-w-sm text-center bg-white/90 backdrop-blur-sm rounded-lg p-14">
+            <div className="w-full max-w-sm rounded-lg bg-white/90 p-14 text-center backdrop-blur-sm">
               <div className="mx-auto mb-6 flex h-12 w-12 items-center justify-center rounded-lg bg-secondary/90 backdrop-blur">
-              <Users className="h-6 w-6 text-foreground" />
+                <Users className="h-6 w-6 text-foreground" />
               </div>
               <h1 className="text-xl font-semibold text-foreground">
                 Visitor Management
