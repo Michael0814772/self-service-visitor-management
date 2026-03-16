@@ -57,6 +57,7 @@ export function getApprovalMessage(data: {
               year: "numeric",
               hour: "numeric",
               minute: "2-digit",
+              hour12: true,
             });
           } catch {
             return data.appointment_time;

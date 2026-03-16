@@ -371,7 +371,7 @@ const AdminDashboard = () => {
                           {visitor.checked_in_at
                             ? format(
                                 new Date(visitor.checked_in_at),
-                                "MMM d, HH:mm",
+                                "MMM d, hh:mm a",
                               )
                             : "—"}
                         </td>
@@ -379,7 +379,7 @@ const AdminDashboard = () => {
                           {visitor.checked_out_at
                             ? format(
                                 new Date(visitor.checked_out_at),
-                                "MMM d, HH:mm",
+                                "MMM d, hh:mm a",
                               )
                             : "—"}
                         </td>
@@ -518,7 +518,7 @@ const AdminDashboard = () => {
                         {selectedVisitor.appointment_time
                           ? format(
                               new Date(selectedVisitor.appointment_time),
-                              "MMM d, yyyy 'at' HH:mm",
+                              "MMM d, yyyy 'at' hh:mm a",
                             )
                           : "—"}
                       </p>
@@ -536,7 +536,7 @@ const AdminDashboard = () => {
                       <p className="text-sm tabular-nums text-foreground">
                         {format(
                           new Date(selectedVisitor.created_at),
-                          "MMM d, yyyy 'at' HH:mm",
+                          "MMM d, yyyy 'at' hh:mm a",
                         )}
                       </p>
                     </div>
@@ -548,7 +548,7 @@ const AdminDashboard = () => {
                         {selectedVisitor.checked_in_at
                           ? format(
                               new Date(selectedVisitor.checked_in_at),
-                              "MMM d, yyyy 'at' HH:mm",
+                              "MMM d, yyyy 'at' hh:mm a",
                             )
                           : "—"}
                       </p>
@@ -561,7 +561,7 @@ const AdminDashboard = () => {
                         {selectedVisitor.checked_out_at
                           ? format(
                               new Date(selectedVisitor.checked_out_at),
-                              "MMM d, yyyy 'at' HH:mm",
+                              "MMM d, yyyy 'at' hh:mm a",
                             )
                           : "—"}
                       </p>
