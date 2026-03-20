@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { useNavigate } from "react-router";
 import { Users, Shield } from "lucide-react";
-import homepageOverlay from "@/assets/image/homepage-overlay.jpg";
+import homepageOverlay from "@/assets/image/homepage-overlay.png";
 
 const Index = () => {
   const navigate = useNavigate();
@@ -59,8 +59,8 @@ const Index = () => {
                 Visitor Management
               </h1>
               <p className="mt-5 text-sm text-muted-foreground">
-                Self-service check-in system. Register your visit or sign in as an
-                administrator.
+                Self-service check-in system. Register your visit or sign in as
+                an administrator.
               </p>
 
               <div className="mt-14 space-y-3">
