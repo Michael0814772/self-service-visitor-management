@@ -44,6 +44,7 @@ export function getApprovalMessage(data: {
   host_name: string;
   appointment_time: string | null | undefined;
   duration_minutes?: number;
+  floor?: string | null;
   qr_code_url: string;
   badge_url: string;
 }): string {
@@ -66,6 +67,11 @@ export function getApprovalMessage(data: {
         })()
       : "—";
 
+  const floorLabel =
+    data.floor != null && String(data.floor).trim() !== ""
+      ? String(data.floor).trim()
+      : "—";
+
   const durationLabel =
     typeof data.duration_minutes === "number"
       ? data.duration_minutes === 60
@@ -79,6 +85,7 @@ export function getApprovalMessage(data: {
 <b>Visit details:</b><br>
 Purpose: ${data.purpose}<br>
 Host: ${data.host_name}<br>
+Floor: ${floorLabel}<br>
 Appointment Time: ${appointmentDate}<br>
 Duration: ${durationLabel}<br><br>
 
