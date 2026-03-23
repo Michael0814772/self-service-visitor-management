@@ -30,6 +30,7 @@ interface Visitor {
   floor: string | null;
   status: VisitorStatus;
   created_at: string;
+  updated_at: string;
   checked_in_at: string | null;
   checked_out_at: string | null;
   notes: string | null;
@@ -265,6 +266,7 @@ const AdminDashboard = () => {
                 ? { floor: floorNumber }
                 : {}),
               ...(status === "REJECTED" && notes ? { notes } : {}),
+              updated_at: now,
             }
           : v,
       ),
@@ -284,6 +286,7 @@ const AdminDashboard = () => {
                 ? { floor: floorNumber }
                 : {}),
               ...(status === "REJECTED" && notes ? { notes } : {}),
+              updated_at: now,
             }
           : null,
       );
@@ -526,6 +529,12 @@ const AdminDashboard = () => {
                     <th className="hidden px-4 py-3 text-left font-medium text-muted-foreground lg:table-cell">
                       Check-out
                     </th>
+                    <th className="hidden px-4 py-3 text-left font-medium text-muted-foreground xl:table-cell">
+                      Created
+                    </th>
+                    <th className="hidden px-4 py-3 text-left font-medium text-muted-foreground xl:table-cell">
+                      Updated
+                    </th>
                   </tr>
                 </thead>
                 <tbody>
@@ -567,6 +576,22 @@ const AdminDashboard = () => {
                           {visitor.checked_out_at
                             ? format(
                                 new Date(visitor.checked_out_at),
+                                "MMM d, hh:mm a",
+                              )
+                            : "—"}
+                        </td>
+                        <td className="hidden px-4 py-3 tabular-nums text-muted-foreground xl:table-cell">
+                          {visitor.created_at
+                            ? format(
+                                new Date(visitor.created_at),
+                                "MMM d, hh:mm a",
+                              )
+                            : "—"}
+                        </td>
+                        <td className="hidden px-4 py-3 tabular-nums text-muted-foreground xl:table-cell">
+                          {visitor.updated_at
+                            ? format(
+                                new Date(visitor.updated_at),
                                 "MMM d, hh:mm a",
                               )
                             : "—"}
@@ -792,13 +817,28 @@ const AdminDashboard = () => {
                       )}
                     <div>
                       <p className="text-xs text-muted-foreground">
-                        Requested at
+                        Created at
                       </p>
                       <p className="text-sm tabular-nums text-foreground">
-                        {format(
-                          new Date(selectedVisitor.created_at),
-                          "MMM d, yyyy 'at' hh:mm a",
-                        )}
+                        {selectedVisitor.created_at
+                          ? format(
+                              new Date(selectedVisitor.created_at),
+                              "MMM d, yyyy 'at' hh:mm a",
+                            )
+                          : "—"}
+                      </p>
+                    </div>
+                    <div>
+                      <p className="text-xs text-muted-foreground">
+                        Updated at
+                      </p>
+                      <p className="text-sm tabular-nums text-foreground">
+                        {selectedVisitor.updated_at
+                          ? format(
+                              new Date(selectedVisitor.updated_at),
+                              "MMM d, yyyy 'at' hh:mm a",
+                            )
+                          : "—"}
                       </p>
                     </div>
                     <div>
