@@ -115,12 +115,11 @@ EmailJS (host notify, approve/reject HTML) — client-side, public key only
 
 ### Phase G — Deployment
 
-1. Build: `npm run build`.
-2. Host static assets (Vercel, Netlify, S3+CloudFront, etc.).
-3. Set production env vars on the host (same `VITE_*` names).
-4. **Supabase Auth:** add production URL to redirect allow list.
-5. **CORS / site URL:** ensure Supabase Auth “Site URL” matches deployed origin.
-6. QR codes and badge links use `window.location.origin` — production domain must be correct.
+1. Host static assets (Vercel, Netlify, S3+CloudFront, etc.).
+2. Set production env vars on the host (same `VITE_*` names).
+3. **Supabase Auth:** add production URL to redirect allow list.
+4. **CORS / site URL:** ensure Supabase Auth “Site URL” matches deployed origin.
+5. QR codes and badge links use `window.location.origin` — production domain must be correct.
 
 **Exit criteria:** Production URL completes Phases F1–F4 against production Supabase.
 
