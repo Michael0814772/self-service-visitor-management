@@ -26,7 +26,8 @@ interface Visitor {
   purpose: string;
   host_name: string;
   appointment_time: string | null;
-   duration_minutes: number | null;
+  duration_minutes: number | null;
+  floor: string | null;
   status: VisitorStatus;
   created_at: string;
   checked_in_at: string | null;
@@ -54,6 +55,7 @@ const AdminDashboard = () => {
   const [adminName, setAdminName] = useState<string>("");
   const [approveDurationMinutes, setApproveDurationMinutes] =
     useState<number>(30);
+  const [approveFloorNumber, setApproveFloorNumber] = useState("");
   const [showApproveDuration, setShowApproveDuration] = useState(false);
   const [updatingVisitorId, setUpdatingVisitorId] = useState<string | null>(
     null,
@@ -141,6 +143,7 @@ const AdminDashboard = () => {
     // Reset approve flow when changing selection or status
     setShowApproveDuration(false);
     setApproveDurationMinutes(30);
+    setApproveFloorNumber("");
     setShowRejectReason(false);
     setRejectReason("");
   }, [selectedVisitor?.id, selectedVisitor?.status]);
@@ -148,7 +151,11 @@ const AdminDashboard = () => {
   const updateStatus = async (
     id: string,
     status: VisitorStatus,
-    options?: { durationMinutes?: number; notes?: string },
+    options?: {
+      durationMinutes?: number;
+      floorNumber?: string;
+      notes?: string;
+    },
   ) => {
     if (!supabase) return;
     if (updatingVisitorId) return;
@@ -156,6 +163,7 @@ const AdminDashboard = () => {
     const visitor = visitors.find((v) => v.id === id);
     const now = new Date().toISOString();
     const durationMinutes = options?.durationMinutes;
+    const floorNumber = options?.floorNumber?.trim();
     const notes = options?.notes?.trim();
     const { error } = await supabase
       .from("visitors")
@@ -165,6 +173,9 @@ const AdminDashboard = () => {
         ...(status === "CHECKED_OUT" ? { checked_out_at: now } : {}),
         ...(status === "APPROVED" && typeof durationMinutes === "number"
           ? { duration_minutes: durationMinutes }
+          : {}),
+        ...(status === "APPROVED" && floorNumber
+          ? { floor: floorNumber }
           : {}),
         ...(status === "REJECTED" && notes
           ? { notes }
@@ -183,6 +194,7 @@ const AdminDashboard = () => {
         from: visitor?.status,
         to: status,
         durationMinutes,
+        floorNumber,
         notes,
       },
     });
@@ -217,6 +229,7 @@ const AdminDashboard = () => {
               typeof durationMinutes === "number"
                 ? durationMinutes
                 : visitor!.duration_minutes ?? undefined,
+            floor: floorNumber ?? visitor!.floor,
             qr_code_url: qrCodeUrl,
             badge_url: badgeUrl,
           });
@@ -248,6 +261,9 @@ const AdminDashboard = () => {
               ...(status === "APPROVED" && typeof durationMinutes === "number"
                 ? { duration_minutes: durationMinutes }
                 : {}),
+              ...(status === "APPROVED" && floorNumber
+                ? { floor: floorNumber }
+                : {}),
               ...(status === "REJECTED" && notes ? { notes } : {}),
             }
           : v,
@@ -263,6 +279,9 @@ const AdminDashboard = () => {
               ...(status === "CHECKED_OUT" ? { checked_out_at: now } : {}),
               ...(status === "APPROVED" && typeof durationMinutes === "number"
                 ? { duration_minutes: durationMinutes }
+                : {}),
+              ...(status === "APPROVED" && floorNumber
+                ? { floor: floorNumber }
                 : {}),
               ...(status === "REJECTED" && notes ? { notes } : {}),
             }
@@ -612,12 +631,34 @@ const AdminDashboard = () => {
                         <option value={240}>4 hours</option>
                       </select>
                     </div>
+                    <div>
+                      <label
+                        htmlFor="approve-floor"
+                        className="text-xs text-muted-foreground"
+                      >
+                        Floor number *
+                      </label>
+                      <input
+                        id="approve-floor"
+                        type="text"
+                        inputMode="text"
+                        autoComplete="off"
+                        placeholder="e.g. 2, 3B, or Ground"
+                        className="mt-1 flex h-9 w-full rounded-md border border-input bg-background px-2 text-xs ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+                        value={approveFloorNumber}
+                        onChange={(e) => setApproveFloorNumber(e.target.value)}
+                      />
+                    </div>
                     <div className="flex gap-2 pt-2">
                       <Button
-                        disabled={updatingVisitorId === selectedVisitor.id}
+                        disabled={
+                          updatingVisitorId === selectedVisitor.id ||
+                          !approveFloorNumber.trim()
+                        }
                         onClick={() =>
                           updateStatus(selectedVisitor.id, "APPROVED", {
                             durationMinutes: approveDurationMinutes,
+                            floorNumber: approveFloorNumber.trim(),
                           })
                         }
                         className="h-10 flex-1 gap-1 bg-status-approved-fg text-primary-foreground hover:bg-status-approved-fg/90"
@@ -633,6 +674,7 @@ const AdminDashboard = () => {
                         onClick={() => {
                           setShowApproveDuration(false);
                           setApproveDurationMinutes(30);
+                          setApproveFloorNumber("");
                         }}
                         className="h-10 flex-1 gap-1 border-border text-muted-foreground hover:bg-accent"
                       >
@@ -736,6 +778,18 @@ const AdminDashboard = () => {
                         <StatusBadge status={selectedVisitor.status} />
                       </div>
                     </div>
+                    {selectedVisitor.floor &&
+                      selectedVisitor.status !== "PENDING" &&
+                      selectedVisitor.status !== "REJECTED" && (
+                        <div>
+                          <p className="text-xs text-muted-foreground">
+                            Floor
+                          </p>
+                          <p className="text-sm text-foreground">
+                            {selectedVisitor.floor}
+                          </p>
+                        </div>
+                      )}
                     <div>
                       <p className="text-xs text-muted-foreground">
                         Requested at

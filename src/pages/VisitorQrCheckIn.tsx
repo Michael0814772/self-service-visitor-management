@@ -10,6 +10,7 @@ const VisitorQrCheckIn = () => {
   const { id } = useParams<{ id: string }>();
   const [state, setState] = useState<State>("loading");
   const [reason, setReason] = useState<string | null>(null);
+  const [floorNumber, setFloorNumber] = useState<string | null>(null);
 
   useEffect(() => {
     const run = async () => {
@@ -20,7 +21,7 @@ const VisitorQrCheckIn = () => {
       try {
         const { data, error } = await supabase
           .from("visitors")
-          .select("status")
+          .select("status, floor")
           .eq("id", id)
           .maybeSingle();
         if (error || !data) {
@@ -28,8 +29,17 @@ const VisitorQrCheckIn = () => {
           setState("error");
           return;
         }
+        const row = data as {
+          status: string;
+          floor?: string | null;
+        };
+        const floor =
+          row.floor != null && String(row.floor).trim() !== ""
+            ? String(row.floor).trim()
+            : null;
+        setFloorNumber(floor);
         const now = new Date().toISOString();
-        if (data.status === "APPROVED") {
+        if (row.status === "APPROVED") {
           const { error: updateError } = await supabase
             .from("visitors")
             .update({
@@ -51,7 +61,7 @@ const VisitorQrCheckIn = () => {
           }
           return;
         }
-        if (data.status === "CHECKED_IN") {
+        if (row.status === "CHECKED_IN") {
           const { error: updateError } = await supabase
             .from("visitors")
             .update({
@@ -73,11 +83,11 @@ const VisitorQrCheckIn = () => {
           }
           return;
         }
-        if (data.status === "PENDING") {
+        if (row.status === "PENDING") {
           setReason("Your visit has not been approved yet.");
-        } else if (data.status === "REJECTED") {
+        } else if (row.status === "REJECTED") {
           setReason("This visit request was rejected.");
-        } else if (data.status === "CHECKED_OUT") {
+        } else if (row.status === "CHECKED_OUT") {
           setReason("You are already checked out.");
         } else {
           setReason("This visit cannot be checked in with this code.");
@@ -110,6 +120,12 @@ const VisitorQrCheckIn = () => {
             <p className="text-sm font-medium text-foreground">
               You have been checked in.
             </p>
+            {floorNumber && (
+              <p className="text-sm text-foreground">
+                Approved floor:{" "}
+                <span className="font-semibold">{floorNumber}</span>
+              </p>
+            )}
           </>
         )}
         {state === "checked_out" && (
@@ -120,6 +136,11 @@ const VisitorQrCheckIn = () => {
             <p className="text-sm font-medium text-foreground">
               You have been checked out.
             </p>
+            {floorNumber && (
+              <p className="text-xs text-muted-foreground">
+                Visit was for floor {floorNumber}.
+              </p>
+            )}
           </>
         )}
         {state === "error" && (

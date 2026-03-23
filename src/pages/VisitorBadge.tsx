@@ -8,6 +8,7 @@ type Visitor = {
   host_name: string;
   appointment_time: string | null;
   duration_minutes: number | null;
+  floor: string | null;
 };
 
 const VisitorBadge = () => {
@@ -35,7 +36,7 @@ const VisitorBadge = () => {
       const { data } = await supabase
         .from("visitors")
         .select(
-          "full_name, purpose, host_name, appointment_time, duration_minutes",
+          "full_name, purpose, host_name, appointment_time, duration_minutes, floor",
         )
         .eq("id", id)
         .maybeSingle();
@@ -90,6 +91,11 @@ const VisitorBadge = () => {
         : `${visitor.duration_minutes} minutes`
       : "—";
 
+  const floorLabel =
+    visitor.floor != null && String(visitor.floor).trim() !== ""
+      ? String(visitor.floor).trim()
+      : "—";
+
   return (
     <div className="flex min-h-screen items-center justify-center bg-background p-4">
       <div className="w-full max-w-md rounded-xl border border-border bg-card p-6 shadow-md print:border print:shadow-none">
@@ -115,6 +121,12 @@ const VisitorBadge = () => {
               Host
             </p>
             <p className="text-sm text-foreground">{visitor.host_name}</p>
+          </div>
+          <div>
+            <p className="text-xs uppercase tracking-wide text-muted-foreground">
+              Floor
+            </p>
+            <p className="text-sm font-medium text-foreground">{floorLabel}</p>
           </div>
           <div>
             <p className="text-xs uppercase tracking-wide text-muted-foreground">
